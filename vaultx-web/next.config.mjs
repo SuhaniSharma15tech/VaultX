@@ -8,6 +8,7 @@ const cspHeader = `
     object-src 'none';
     base-uri 'self';
     form-action 'self';
+    frame-src 'self' blob: data:;
     frame-ancestors 'none';
     connect-src 'self' http://localhost:* ws://localhost:* https:;
     block-all-mixed-content;

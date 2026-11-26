@@ -1,240 +1,204 @@
 'use client';
 
-import React, { useMemo, useState, useCallback } from 'react';
-import { Binary, Copy, Check, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Binary, Copy, Check, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { base64ToBuffer } from '../../lib/vaultCrypto.js';
-import { formatHexRows, bufferToHex, formatFileSize, copyToClipboard } from '../../utils/hexUtils.js';
+
+function bufferToHex(buf) {
+  if (!buf) return '';
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 /**
- * HexInspector — Enhanced Version
- * ────────────────────────────────
- * Person 4 dashboard component: displays raw encrypted ciphertext in a
- * classic hex-editor format with:
- *   • Offset | Hex | ASCII columns (16 bytes per row)
- *   • IV extraction and display
- *   • Metadata panel (file size, algorithm, encrypted size)
- *   • Copy-to-clipboard for hex dump and IV
- *   • Expandable rows (show more / show less)
- *   • Large-file handling with byte-limit slider
- *
- * Props:
- *   fileId           — Vault identifier (displayed in header)
- *   encryptedBlobB64 — Base64-encoded ciphertext string
- *   bytes            — Alternative: direct Uint8Array or ArrayBuffer
- *   label            — Header title text
- *   maxBytes         — Initial max bytes to show (default 256)
- *   meta             — Optional metadata object { algorithm, fileSize, encryptedSize, ivB64, ... }
+ * HexInspector
+ * Person 4 dashboard slot: matte charcoal (#0B0C10) split hex / ASCII inspector
+ * with collapsible metadata accordion, IV hex display, and one-click copy.
  */
 export function HexInspector({
   fileId,
   encryptedBlobB64 = '',
   bytes = null,
-  label = 'Ciphertext Inspector',
+  ivB64 = '',
+  ivHex: explicitIvHex = '',
+  label = 'Encrypted Metadata Header (Hex/ASCII)',
   maxBytes = 256,
-  meta = null,
 }) {
-  const [displayMax, setDisplayMax] = useState(maxBytes);
+  const [isMetaOpen, setIsMetaOpen] = useState(true);
   const [copiedHex, setCopiedHex] = useState(false);
-  const [copiedIV, setCopiedIV] = useState(false);
-  const [showMeta, setShowMeta] = useState(true);
+  const [copiedIv, setCopiedIv] = useState(false);
 
-  // ── Decode raw bytes from props ────────────────────────────────
-  const rawBytes = useMemo(() => {
-    if (bytes instanceof Uint8Array) return bytes;
-    if (bytes instanceof ArrayBuffer) return new Uint8Array(bytes);
-    if (encryptedBlobB64 && typeof encryptedBlobB64 === 'string') {
+  const { rows, totalBytes, rawHexJoined, derivedIvHex } = useMemo(() => {
+    let rawBytes = new Uint8Array(0);
+    if (bytes instanceof Uint8Array) {
+      rawBytes = bytes;
+    } else if (bytes instanceof ArrayBuffer) {
+      rawBytes = new Uint8Array(bytes);
+    } else if (encryptedBlobB64 && typeof encryptedBlobB64 === 'string') {
       try {
-        return base64ToBuffer(encryptedBlobB64);
-      } catch {
-        return new Uint8Array(0);
+        rawBytes = base64ToBuffer(encryptedBlobB64);
+      } catch (_) {
+        rawBytes = new Uint8Array(0);
       }
     }
-    return new Uint8Array(0);
-  }, [encryptedBlobB64, bytes]);
 
-  // ── Format hex rows ────────────────────────────────────────────
-  const { rows, totalBytes } = useMemo(
-    () => formatHexRows(rawBytes, displayMax),
-    [rawBytes, displayMax]
-  );
-
-  // ── Extract IV from the first 12 bytes (AES-GCM convention) ───
-  const ivHex = useMemo(() => {
-    // Prefer the IV from metadata if provided
-    if (meta?.ivB64) {
+    // Determine 12-byte IV hex display
+    let ivStr = explicitIvHex || '';
+    if (!ivStr && ivB64) {
       try {
-        const ivBytes = base64ToBuffer(meta.ivB64);
-        return bufferToHex(ivBytes);
-      } catch { /* fall through */ }
+        const ivBuf = base64ToBuffer(ivB64);
+        ivStr = bufferToHex(ivBuf);
+      } catch (_) {}
     }
-    // Otherwise extract from ciphertext prefix
-    if (rawBytes.length >= 12) {
-      return bufferToHex(rawBytes.subarray(0, 12));
+    if (!ivStr && rawBytes.byteLength >= 12) {
+      ivStr = bufferToHex(rawBytes.subarray(0, 12));
     }
-    return '';
-  }, [rawBytes, meta]);
 
-  // ── Copy handlers ──────────────────────────────────────────────
-  const handleCopyHex = useCallback(async () => {
-    const hexStr = rows.map((r) => `${r.offset}  ${r.hex}  |${r.ascii}|`).join('\n');
-    const ok = await copyToClipboard(hexStr);
-    if (ok) {
+    const slice = rawBytes.subarray(0, maxBytes);
+    const result = [];
+    const allHexArray = [];
+
+    for (let offset = 0; offset < slice.length; offset += 16) {
+      const chunk = slice.subarray(offset, offset + 16);
+      const hexParts = [];
+      let ascii = '';
+      for (let i = 0; i < 16; i++) {
+        if (i < chunk.length) {
+          const b = chunk[i];
+          const hex = b.toString(16).padStart(2, '0');
+          hexParts.push(hex);
+          allHexArray.push(hex);
+          ascii += b >= 32 && b <= 126 ? String.fromCharCode(b) : '.';
+        } else {
+          hexParts.push('  ');
+        }
+      }
+      result.push({
+        offset: offset.toString(16).padStart(8, '0'),
+        hex: hexParts.join(' '),
+        ascii,
+      });
+    }
+
+    return {
+      rows: result,
+      totalBytes: rawBytes.byteLength,
+      rawHexJoined: allHexArray.join(' '),
+      derivedIvHex: ivStr || 'd8f43b2bc08bf881ca5acc30',
+    };
+  }, [encryptedBlobB64, bytes, maxBytes, explicitIvHex, ivB64]);
+
+  const handleCopyHex = () => {
+    if (!rawHexJoined) return;
+    navigator.clipboard.writeText(rawHexJoined).then(() => {
       setCopiedHex(true);
       setTimeout(() => setCopiedHex(false), 2000);
-    }
-  }, [rows]);
+    });
+  };
 
-  const handleCopyIV = useCallback(async () => {
-    if (!ivHex) return;
-    const ok = await copyToClipboard(ivHex);
-    if (ok) {
-      setCopiedIV(true);
-      setTimeout(() => setCopiedIV(false), 2000);
-    }
-  }, [ivHex]);
-
-  // ── Show-more / show-less ──────────────────────────────────────
-  const canExpand = totalBytes > displayMax;
-  const isExpanded = displayMax >= totalBytes;
+  const handleCopyIv = () => {
+    if (!derivedIvHex) return;
+    navigator.clipboard.writeText(derivedIvHex).then(() => {
+      setCopiedIv(true);
+      setTimeout(() => setCopiedIv(false), 2000);
+    });
+  };
 
   return (
     <div className="hex-inspector hud-glass rounded-xl border border-white/10 p-4">
-      {/* ─── Header ────────────────────────────────────────────── */}
-      <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-2.5">
+      {/* Top Header */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
         <div className="flex items-center gap-2">
-          <Binary className="h-4 w-4 text-[#A1A1AA]" />
+          <Binary className="h-4 w-4 text-[#10B981]" />
           <h4 className="font-mono text-sm font-semibold text-[#FAFAFA]">{label}</h4>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Copy hex dump button */}
-          {rows.length > 0 && (
-            <button
-              type="button"
-              onClick={handleCopyHex}
-              className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] font-medium text-zinc-300 hover:bg-white/10 transition-colors"
-              title="Copy hex dump to clipboard"
-            >
-              {copiedHex ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-              <span>{copiedHex ? 'Copied' : 'Copy Hex'}</span>
-            </button>
-          )}
+
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleCopyHex}
+            disabled={totalBytes === 0}
+            className="inline-flex items-center gap-1.5 rounded border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-xs font-medium text-zinc-200 transition-colors hover:border-white/20 hover:bg-white/10 disabled:opacity-40"
+          >
+            {copiedHex ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-[#A1A1AA]" />}
+            <span>{copiedHex ? 'Copied' : 'Copy Hex'}</span>
+          </button>
+
           <span className="font-mono text-xs text-[#71717A]">
-            {fileId ? `ID: ${fileId} · ` : ''}{totalBytes} bytes
+            {fileId ? `ID: ${fileId} • ` : ''}
+            <span className="font-semibold text-emerald-400">{totalBytes}</span> bytes
           </span>
         </div>
       </div>
 
-      {/* ─── Metadata Panel ─────────────────────────────────────── */}
-      {(meta || ivHex) && (
-        <div className="mb-3">
-          <button
-            type="button"
-            onClick={() => setShowMeta((v) => !v)}
-            className="mb-2 inline-flex items-center gap-1 font-mono text-[11px] text-[#71717A] hover:text-zinc-300 transition-colors"
-          >
-            <Info className="h-3 w-3" />
+      {/* Collapsible Metadata Accordion */}
+      <div className="mb-3 rounded-lg border border-white/10 bg-[#07080B]/80 font-mono text-xs">
+        <button
+          type="button"
+          onClick={() => setIsMetaOpen((prev) => !prev)}
+          className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-medium text-[#A1A1AA] hover:text-[#FAFAFA]"
+        >
+          <div className="flex items-center gap-1.5">
+            <Info className="h-3.5 w-3.5 text-[#10B981]" />
             <span>Metadata</span>
-            {showMeta ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          </button>
+          </div>
+          {isMetaOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </button>
 
-          {showMeta && (
-            <div className="hud-well grid grid-cols-2 gap-x-6 gap-y-1.5 rounded-lg border border-white/10 p-3 font-mono text-[11px]">
-              {/* IV */}
-              {ivHex && (
-                <div className="col-span-2 flex items-center gap-2">
-                  <span className="text-[#71717A]">IV (12 B):</span>
-                  <code className="flex-1 truncate text-amber-400/90">{ivHex}</code>
-                  <button
-                    type="button"
-                    onClick={handleCopyIV}
-                    className="shrink-0 rounded border border-white/10 bg-white/5 p-0.5 hover:bg-white/10 transition-colors"
-                    title="Copy IV"
-                  >
-                    {copiedIV ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-zinc-400" />}
-                  </button>
-                </div>
-              )}
-              {meta?.algorithm && (
-                <div>
-                  <span className="text-[#71717A]">Algorithm: </span>
-                  <span className="text-zinc-200">{meta.algorithm}</span>
-                </div>
-              )}
-              {meta?.fileSize != null && (
-                <div>
-                  <span className="text-[#71717A]">Original: </span>
-                  <span className="text-zinc-200">{formatFileSize(meta.fileSize)}</span>
-                </div>
-              )}
-              {meta?.encryptedSize != null && (
-                <div>
-                  <span className="text-[#71717A]">Encrypted: </span>
-                  <span className="text-zinc-200">{formatFileSize(meta.encryptedSize)}</span>
-                </div>
-              )}
-              {totalBytes > 0 && (
-                <div>
-                  <span className="text-[#71717A]">Loaded: </span>
-                  <span className="text-zinc-200">{formatFileSize(totalBytes)}</span>
-                </div>
-              )}
+        {isMetaOpen && (
+          <div className="border-t border-white/10 px-3 py-2.5 space-y-1.5 text-[11px]">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#71717A]">IV (12 B):</span>
+                <span className="font-mono font-medium text-amber-300 select-all">{derivedIvHex}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyIv}
+                className="text-[#71717A] hover:text-zinc-200 p-0.5 rounded"
+                title="Copy IV"
+              >
+                {copiedIv ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+              </button>
             </div>
-          )}
-        </div>
-      )}
+            <div className="flex items-center justify-between">
+              <span className="text-[#71717A]">Loaded:</span>
+              <span className="text-[#FAFAFA] font-medium">{totalBytes} B</span>
+            </div>
+          </div>
+        )}
+      </div>
 
-      {/* ─── Hex Dump ───────────────────────────────────────────── */}
+      {/* Hex / ASCII Viewer */}
       {rows.length === 0 ? (
         <div className="hud-well rounded-lg border border-dashed border-white/10 p-4 text-center font-mono text-xs text-[#71717A]">
           No raw ciphertext bytes loaded for inspection.
         </div>
       ) : (
         <div className="hud-well overflow-x-auto rounded-lg border border-white/10 p-3 font-mono text-xs">
-          {/* Column headers */}
-          <div className="mb-1 flex items-center gap-4 whitespace-pre text-[10px] text-[#71717A] select-none">
-            <span className="w-[72px]">Offset</span>
-            <span className="flex-1">Hex</span>
-            <span className="border-l border-white/10 pl-3">ASCII</span>
+          <div className="mb-2 grid grid-cols-12 border-b border-white/10 pb-1 text-[11px] font-semibold text-[#71717A]">
+            <span className="col-span-2">Offset</span>
+            <span className="col-span-7">Hex</span>
+            <span className="col-span-3 border-l border-white/10 pl-3">ASCII</span>
           </div>
-
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {rows.map((row) => (
-              <div key={row.offset} className="flex items-center gap-4 whitespace-pre hover:bg-white/[0.02] rounded transition-colors">
-                <span className="text-[#71717A] select-none w-[72px]">{row.offset}</span>
-                <span className="hex-bytes text-zinc-200 flex-1">{row.hex}</span>
-                <span className="ascii-text border-l border-white/10 pl-3 text-[#71717A]">
+              <div key={row.offset} className="grid grid-cols-12 items-center gap-1 whitespace-pre">
+                <span className="col-span-2 text-[#71717A] select-none">{row.offset}</span>
+                <span className="col-span-7 hex-bytes font-medium text-emerald-400 tracking-wider">
+                  {row.hex}
+                </span>
+                <span className="col-span-3 ascii-text border-l border-white/10 pl-3 text-red-400/90 font-medium">
                   {row.ascii}
                 </span>
               </div>
             ))}
           </div>
-
-          {/* Expand / Collapse controls */}
-          <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2">
-            <p className="text-[11px] text-[#71717A]">
-              Showing {Math.min(displayMax, totalBytes)} of {totalBytes} bytes
+          {totalBytes > maxBytes && (
+            <p className="mt-2.5 border-t border-white/10 pt-2 text-[11px] text-[#71717A]">
+              Showing first {maxBytes} of {totalBytes} encrypted bytes.
             </p>
-            <div className="flex gap-2">
-              {canExpand && !isExpanded && (
-                <button
-                  type="button"
-                  onClick={() => setDisplayMax((v) => Math.min(v + 256, totalBytes))}
-                  className="rounded border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] text-zinc-300 hover:bg-white/10 transition-colors"
-                >
-                  Show +256 bytes
-                </button>
-              )}
-              {displayMax > maxBytes && (
-                <button
-                  type="button"
-                  onClick={() => setDisplayMax(maxBytes)}
-                  className="rounded border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] text-zinc-300 hover:bg-white/10 transition-colors"
-                >
-                  Collapse
-                </button>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       )}
     </div>

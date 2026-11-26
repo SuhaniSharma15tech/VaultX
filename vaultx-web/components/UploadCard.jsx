@@ -17,6 +17,8 @@ import {
   Search,
   X,
   RotateCcw,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useUpload } from '../hooks/useUpload.js';
 import { QRModal } from './QRModal.jsx';
@@ -32,8 +34,8 @@ function formatBytes(bytes) {
 
 /**
  * UploadCard
- * Obsidian Black (#050508), Matte Charcoal (#0B0C10), Deep Violet (#7C3AED),
- * and Tactical Crimson Red (#EF4444) upload & encryption card.
+ * Obsidian Black (#050508), Matte Charcoal (#0B0C10), Cyber Green (#10B981),
+ * Matrix Green (#22C55E), and Tactical Crimson (#EF4444) upload & encryption card.
  */
 export function UploadCard() {
   const {
@@ -70,6 +72,7 @@ export function UploadCard() {
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [lookupStatus, setLookupStatus] = useState('');
   const fileInputRef = useRef(null);
 
@@ -177,11 +180,11 @@ export function UploadCard() {
               disabled={isBusy}
               className={`tab-file inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${
                 tab === 'file'
-                  ? 'border-[#7C3AED]/60 bg-[#7C3AED]/15 text-white'
+                  ? 'border-[#10B981]/60 bg-[#10B981]/15 text-white'
                   : 'border-white/10 bg-white/[0.03] text-[#A1A1AA] hover:border-white/20 hover:text-[#FAFAFA]'
               }`}
             >
-              <Upload className={`h-3.5 w-3.5 ${tab === 'file' ? 'text-[#7C3AED]' : 'text-[#71717A]'}`} />
+              <Upload className={`h-3.5 w-3.5 ${tab === 'file' ? 'text-[#10B981]' : 'text-[#71717A]'}`} />
               <span>File Upload</span>
             </button>
 
@@ -193,11 +196,11 @@ export function UploadCard() {
               disabled={isBusy}
               className={`tab-note inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${
                 tab === 'text'
-                  ? 'border-[#7C3AED]/60 bg-[#7C3AED]/15 text-white'
+                  ? 'border-[#10B981]/60 bg-[#10B981]/15 text-white'
                   : 'border-white/10 bg-white/[0.03] text-[#A1A1AA] hover:border-white/20 hover:text-[#FAFAFA]'
               }`}
             >
-              <FileText className={`h-3.5 w-3.5 ${tab === 'text' ? 'text-[#7C3AED]' : 'text-[#71717A]'}`} />
+              <FileText className={`h-3.5 w-3.5 ${tab === 'text' ? 'text-[#10B981]' : 'text-[#71717A]'}`} />
               <span>Secret Text Note</span>
             </button>
           </div>
@@ -212,7 +215,7 @@ export function UploadCard() {
                 onClick={() => !isBusy && fileInputRef.current?.click()}
                 className={`dropzone hud-well flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-5 text-center transition-all ${
                   isDragging
-                    ? 'border-[#7C3AED] bg-[#7C3AED]/10'
+                    ? 'border-[#10B981] bg-[#10B981]/10'
                     : 'border-white/15 hover:border-white/30'
                 }`}
               >
@@ -247,8 +250,8 @@ export function UploadCard() {
                   </div>
                 ) : (
                   <>
-                    <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-full border border-[#7C3AED]/40 bg-[#7C3AED]/15">
-                      <Upload className="h-5 w-5 text-[#7C3AED]" />
+                    <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-full border border-[#10B981]/40 bg-[#10B981]/15">
+                      <Upload className="h-5 w-5 text-[#10B981]" />
                     </div>
                     <p className="text-sm font-medium text-[#FAFAFA]">
                       Drag and drop a file here, or click to browse
@@ -276,7 +279,7 @@ export function UploadCard() {
                   onChange={(e) => setTextNote(e.target.value)}
                   disabled={isBusy}
                   placeholder="Paste API keys, recovery phrases, or private notes..."
-                  className="secret-note-textarea hud-well w-full rounded-xl border border-white/10 p-3.5 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#7C3AED] focus:outline-none"
+                  className="secret-note-textarea hud-well w-full rounded-xl border border-white/10 p-3.5 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#10B981] focus:outline-none"
                 />
               </div>
             )}
@@ -289,39 +292,8 @@ export function UploadCard() {
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <label
                   className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${
-                    mode === 'MODE_B'
-                      ? 'border-[#7C3AED] bg-[#7C3AED]/10'
-                      : 'border-white/10 bg-[#0B0C10] hover:border-white/20'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="vaultx-mode"
-                    value="MODE_B"
-                    checked={mode === 'MODE_B'}
-                    onChange={() => setMode('MODE_B')}
-                    disabled={isBusy}
-                    className="mt-0.5 accent-[#7C3AED]"
-                  />
-                  <div>
-                    <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-[#FAFAFA]">
-                      <Link2 className={`h-3.5 w-3.5 ${mode === 'MODE_B' ? 'text-[#7C3AED]' : 'text-[#71717A]'}`} />
-                      <span>Mode B: Anonymous Fragment Link</span>
-                    </div>
-                    <p className="mt-1 text-xs text-[#A1A1AA]">
-                      Ephemeral AES key stored only in URL{' '}
-                      <code className="rounded border border-white/10 bg-white/5 px-1 py-0.5 text-zinc-200">
-                        #key=
-                      </code>{' '}
-                      fragment.
-                    </p>
-                  </div>
-                </label>
-
-                <label
-                  className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${
                     mode === 'MODE_A'
-                      ? 'border-[#7C3AED] bg-[#7C3AED]/10'
+                      ? 'border-[#10B981] bg-[#10B981]/10'
                       : 'border-white/10 bg-[#0B0C10] hover:border-white/20'
                   }`}
                 >
@@ -332,15 +304,46 @@ export function UploadCard() {
                     checked={mode === 'MODE_A'}
                     onChange={() => setMode('MODE_A')}
                     disabled={isBusy}
-                    className="mt-0.5 accent-[#7C3AED]"
+                    className="mt-0.5 accent-[#10B981]"
                   />
                   <div>
                     <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-[#FAFAFA]">
-                      <UserCheck className={`h-3.5 w-3.5 ${mode === 'MODE_A' ? 'text-[#7C3AED]' : 'text-[#71717A]'}`} />
+                      <UserCheck className={`h-3.5 w-3.5 ${mode === 'MODE_A' ? 'text-[#10B981]' : 'text-[#71717A]'}`} />
                       <span>Mode A: Recipient Public Key</span>
                     </div>
                     <p className="mt-1 text-xs text-[#A1A1AA]">
                       AES key wrapped with recipient RSA-OAEP public key. Zero fragment.
+                    </p>
+                  </div>
+                </label>
+
+                <label
+                  className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${
+                    mode === 'MODE_B'
+                      ? 'border-[#10B981] bg-[#10B981]/10'
+                      : 'border-white/10 bg-[#0B0C10] hover:border-white/20'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="vaultx-mode"
+                    value="MODE_B"
+                    checked={mode === 'MODE_B'}
+                    onChange={() => setMode('MODE_B')}
+                    disabled={isBusy}
+                    className="mt-0.5 accent-[#10B981]"
+                  />
+                  <div>
+                    <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-[#FAFAFA]">
+                      <Link2 className={`h-3.5 w-3.5 ${mode === 'MODE_B' ? 'text-[#10B981]' : 'text-[#71717A]'}`} />
+                      <span>Mode B: Anonymous Fragment Link</span>
+                    </div>
+                    <p className="mt-1 text-xs text-[#A1A1AA]">
+                      Ephemeral AES key stored only in URL{' '}
+                      <code className="rounded border border-white/10 bg-white/5 px-1 py-0.5 text-zinc-200">
+                        #key=
+                      </code>{' '}
+                      fragment.
                     </p>
                   </div>
                 </label>
@@ -362,7 +365,7 @@ export function UploadCard() {
                       }}
                       disabled={isBusy}
                       placeholder="Enter recipient handle (e.g. alice)"
-                      className="recipient-input flex-1 rounded-md border border-white/10 bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#7C3AED] focus:outline-none"
+                      className="recipient-input flex-1 rounded-md border border-white/10 bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#10B981] focus:outline-none"
                     />
                     <button
                       type="button"
@@ -427,15 +430,15 @@ export function UploadCard() {
                   value={maxDownloads}
                   onChange={(e) => setMaxDownloads(Math.max(1, Number(e.target.value) || 1))}
                   disabled={isBusy || isBurnAfterReading}
-                  className="max-downloads-input w-full rounded-md border border-white/10 bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-[#FAFAFA] focus:border-[#7C3AED] focus:outline-none disabled:opacity-50"
+                  className="max-downloads-input w-full rounded-md border border-white/10 bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-[#FAFAFA] focus:border-[#10B981] focus:outline-none disabled:opacity-50"
                 />
               </div>
 
-              {/* Burn After Reading (1 View) — Tactical Crimson Red Accent */}
+              {/* Burn After Reading (1 View) — Tactical Crimson / Ruby Red Accent */}
               <div
                 className={`flex items-center justify-between gap-2.5 rounded-lg border px-3 py-2 transition-colors sm:col-span-2 ${
                   isBurnAfterReading
-                    ? 'border-red-500/40 bg-red-500/10 text-red-400'
+                    ? 'border-red-500/50 bg-gradient-to-r from-red-950/30 to-[#0B0C10] text-red-400'
                     : 'border-white/10 bg-[#0B0C10] text-[#A1A1AA]'
                 }`}
               >
@@ -491,15 +494,30 @@ export function UploadCard() {
                 </div>
 
                 {isPasswordProtected && (
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isBusy}
-                    placeholder="Enter link protection password..."
-                    aria-label="Vault protection password"
-                    className="password-input w-full rounded-md border border-red-500/30 bg-[#050508] px-3 py-1.5 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-red-500 focus:outline-none"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isBusy}
+                      placeholder="Enter link protection password..."
+                      aria-label="Vault protection password"
+                      className="password-input w-full rounded-md border border-red-500/30 bg-[#050508] px-3 py-1.5 pr-10 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-red-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      disabled={isBusy}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#71717A] hover:text-[#FAFAFA] transition-colors focus:outline-none"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -512,12 +530,12 @@ export function UploadCard() {
               </div>
             )}
 
-            {/* Dynamic Action Button — Solid Deep Violet (#7C3AED) */}
+            {/* Dynamic Action Button — Solid Cyber Green (#10B981) */}
             <div className="flex items-center gap-3">
               <button
                 type="submit"
                 disabled={isSubmitDisabled}
-                className="btn-upload inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#7C3AED] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-lg shadow-violet-600/25 transition-all hover:bg-[#6D28D9] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                className="btn-upload inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#10B981] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-lg shadow-emerald-500/25 transition-all hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
               >
                 <Lock className="h-4 w-4" />
                 <span>{getActionLabel()}</span>
@@ -562,7 +580,7 @@ export function UploadCard() {
                   <button
                     type="button"
                     onClick={() => handleCopyText(result.fullShareUrl, setCopiedLink)}
-                    className="btn-copy-link inline-flex items-center gap-1.5 rounded-md bg-[#7C3AED] px-3 py-1.5 font-mono text-xs font-semibold text-white hover:bg-[#6D28D9]"
+                    className="btn-copy-link inline-flex items-center gap-1.5 rounded-md bg-[#10B981] px-3 py-1.5 font-mono text-xs font-semibold text-white shadow-md shadow-emerald-500/20 hover:bg-[#059669]"
                   >
                     {copiedLink ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                     <span>{copiedLink ? 'Copied' : 'Copy'}</span>
