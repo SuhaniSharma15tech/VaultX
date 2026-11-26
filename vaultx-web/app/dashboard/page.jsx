@@ -3,13 +3,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Shield, Plus, ExternalLink, RefreshCw, Inbox, Lock, LogIn } from 'lucide-react';
+import { Plus, ExternalLink, RefreshCw, Inbox, Lock, LogIn } from 'lucide-react';
 import { AuditTrail } from '../../components/dashboard/AuditTrail.jsx';
 import { HexInspector } from '../../components/dashboard/HexInspector.jsx';
 import { RevokeButton } from '../../components/dashboard/RevokeButton.jsx';
 import { TerminalWindow } from '../../components/TerminalWindow.jsx';
 import { ThemeToggle } from '../../components/ThemeToggle.jsx';
 import { AuthNavButton } from '../../components/AuthNavButton.jsx';
+import { VaultXLogo } from '../../components/VaultXLogo.jsx';
 import { useAuth } from '../../lib/authContext.js';
 import { getMetadata } from '../../lib/api.js';
 
@@ -109,9 +110,7 @@ export default function DashboardPage() {
       <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/85 dark:border-white/10 dark:bg-[#050508]/85 backdrop-blur-xl transition-colors duration-150">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-4 py-3">
           <Link href="/" className="group flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-900 bg-zinc-900 text-white dark:border-red-500/40 dark:bg-red-500/10 dark:text-[#EF4444] transition-colors group-hover:opacity-90">
-              <Shield className="h-4 w-4" />
-            </div>
+            <VaultXLogo className="h-8 w-8" />
             <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-[#FAFAFA]">
               VAULTX
             </span>
