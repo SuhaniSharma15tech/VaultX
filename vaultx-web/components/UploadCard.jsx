@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Upload,
   FileText,
@@ -77,6 +78,7 @@ function getSettingsStorageKey(user) {
  * Secret Text Note flow: Enter Note -> Configure Settings -> Encrypt & Share.
  */
 export function UploadCard() {
+  const router = useRouter();
   const { user } = useAuth();
   const {
     tab,
@@ -113,6 +115,7 @@ export function UploadCard() {
   const [isDragging, setIsDragging] = useState(false);
   const [recentFiles, setRecentFiles] = useState([]);
   const [selectedFileCardId, setSelectedFileCardId] = useState(null);
+  const [duplicateFileInfo, setDuplicateFileInfo] = useState(null);
 
   // Per-file isolated state keyed by fileId
   const [settingsByFileId, setSettingsByFileId] = useState({});
@@ -257,6 +260,7 @@ export function UploadCard() {
     const dropped = e.dataTransfer?.files?.[0];
     if (dropped) {
       setFile(dropped);
+      setDuplicateFileInfo(null);
     }
   };
 
@@ -264,6 +268,7 @@ export function UploadCard() {
     const selected = e.target.files?.[0];
     if (selected) {
       setFile(selected);
+      setDuplicateFileInfo(null);
     }
   };
 
@@ -304,6 +309,7 @@ export function UploadCard() {
   const handleFileUploadSubmit = async (e) => {
     e.preventDefault();
     if (!file) return;
+    setDuplicateFileInfo(null);
     const initialSettingsSnapshot = createDefaultFileSettings({
       mode,
       recipientUsername,
@@ -329,13 +335,48 @@ export function UploadCard() {
 
         // Sync initial settings for this specific fileId on backend
         if (uploaded.ownerToken) {
-          updateVaultSettings(newId, uploaded.ownerToken, initialSettingsSnapshot).catch(() => { });
+          updateVaultSettings(newId, uploaded.ownerToken, initialSettingsSnapshot).catch(() => {});
         }
 
         setRecentFiles((prev) => [uploaded, ...prev].slice(0, 3));
         setSelectedFileCardId(newId);
       }
-    } catch (_) { }
+    } catch (err) {
+      if (err?.code === 'DUPLICATE_FILE' && err.existingFile) {
+        setDuplicateFileInfo(err.existingFile);
+      }
+    }
+  };
+
+  const handleOpenExistingFile = () => {
+    if (!duplicateFileInfo) return;
+    const existingId = duplicateFileInfo.fileId || duplicateFileInfo.id;
+    let foundRecord = recentFiles.find((f) => (f.fileId || f.id) === existingId) || null;
+
+    if (!foundRecord && typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const storageKey = getUserVaultStorageKey(user);
+        const raw = window.localStorage.getItem(storageKey);
+        const list = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(list)) {
+          foundRecord = list.find((item) => (item.fileId || item.id) === existingId) || null;
+        }
+      } catch (_) {}
+    }
+
+    setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setDuplicateFileInfo(null);
+
+    if (foundRecord && foundRecord.fileKeyB64Url) {
+      setRecentFiles((prev) => {
+        const filtered = prev.filter((item) => (item.fileId || item.id) !== existingId);
+        return [foundRecord, ...filtered].slice(0, 3);
+      });
+      setSelectedFileCardId(existingId);
+    } else {
+      router.push('/dashboard');
+    }
   };
 
   // Selected File Card -> Encrypt & Share using ONLY that card's isolated settings
@@ -832,6 +873,7 @@ export function UploadCard() {
                       onClick={(e) => {
                         e.stopPropagation();
                         setFile(null);
+                        setDuplicateFileInfo(null);
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
                       className="rounded p-1 text-zinc-400 dark:text-[#71717A] hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-[#FAFAFA]"
@@ -867,9 +909,21 @@ export function UploadCard() {
               })}
 
               {error && (
-                <div className="error-banner flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{error}</span>
+                <div className="error-banner flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                  {duplicateFileInfo && (
+                    <button
+                      type="button"
+                      onClick={handleOpenExistingFile}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[#10B981]/50 bg-[#10B981]/15 px-3 py-1.5 font-mono text-xs font-semibold text-[#4ADE80] transition-colors hover:bg-[#10B981]/25"
+                    >
+                      <span>Open Existing File</span>
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -927,9 +981,21 @@ export function UploadCard() {
               })}
 
               {error && (
-                <div className="error-banner flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>{error}</span>
+                <div className="error-banner flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                  {duplicateFileInfo && (
+                    <button
+                      type="button"
+                      onClick={handleOpenExistingFile}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[#10B981]/50 bg-[#10B981]/15 px-3 py-1.5 font-mono text-xs font-semibold text-[#4ADE80] transition-colors hover:bg-[#10B981]/25"
+                    >
+                      <span>Open Existing File</span>
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               )}
 

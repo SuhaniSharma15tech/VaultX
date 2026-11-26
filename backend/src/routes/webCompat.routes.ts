@@ -346,7 +346,73 @@ const webUploadSchema = z.object({
   expiryMinutes: z.coerce.number().int().min(1).max(10080).default(60),
   maxDownloads: z.coerce.number().int().min(1).max(1000).default(5),
   recipientUsername: z.string().nullable().optional(),
+  fileHash: z.string().min(32).max(128).nullable().optional(),
 });
+
+/**
+ * Finds an active (non-revoked, non-burned, non-expired, downloads remaining)
+ * vault matching the given ownerId and SHA-256 fileHash.
+ */
+async function findActiveDuplicate(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  ownerId: string,
+  fileHash: string
+) {
+  const nowIso = new Date().toISOString();
+  const { data: existing, error } = await supabase
+    .from("VaultItem")
+    .select("id, mode, sizeBytes, createdAt, expiresAt")
+    .eq("ownerId", ownerId)
+    .eq("sha256Checksum", fileHash)
+    .eq("isRevoked", false)
+    .eq("burned", false)
+    .gt("remainingDownloads", 0)
+    .gt("expiresAt", nowIso)
+    .order("createdAt", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return existing;
+}
+
+/**
+ * GET /api/vault/check-duplicate?hash=<sha256>
+ * Checks if the authenticated user already has an active upload with the given SHA-256 hash.
+ */
+webCompatRouter.get(
+  "/vault/check-duplicate",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const fileHash = String(req.query.hash || "").trim();
+      if (!fileHash || fileHash.length < 32) {
+        res.status(400).json({ success: false, message: "Valid SHA-256 hash is required" });
+        return;
+      }
+      const supabase = getSupabaseClient();
+      const existing = await findActiveDuplicate(supabase, req.user!.userId, fileHash);
+      if (!existing) {
+        res.json({ success: true, duplicate: false, existingFile: null });
+        return;
+      }
+      res.json({
+        success: true,
+        duplicate: true,
+        existingFile: {
+          id: existing.id,
+          fileId: existing.id,
+          mode: existing.mode,
+          sizeBytes: existing.sizeBytes,
+          createdAt: toUtcIso(existing.createdAt),
+          expiresAt: toUtcIso(existing.expiresAt),
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 /**
  * POST /api/vault/upload
@@ -361,8 +427,30 @@ webCompatRouter.post(
       const data = webUploadSchema.parse(req.body);
       const supabase = getSupabaseClient();
 
+      // Enforce per-user duplicate prevention on the backend before writing blob to disk
+      if (req.user?.userId && data.fileHash) {
+        const duplicate = await findActiveDuplicate(supabase, req.user.userId, data.fileHash);
+        if (duplicate) {
+          res.status(409).json({
+            success: false,
+            code: "DUPLICATE_FILE",
+            message: "This file has already been uploaded.",
+            existingFile: {
+              id: duplicate.id,
+              fileId: duplicate.id,
+              mode: duplicate.mode,
+              sizeBytes: duplicate.sizeBytes,
+              createdAt: toUtcIso(duplicate.createdAt),
+              expiresAt: toUtcIso(duplicate.expiresAt),
+            },
+          });
+          return;
+        }
+      }
+
       const cipherBuffer = Buffer.from(data.encryptedBlobB64, "base64");
-      const sha256Checksum = crypto.createHash("sha256").update(cipherBuffer).digest("hex");
+      const sha256Checksum =
+        data.fileHash || crypto.createHash("sha256").update(cipherBuffer).digest("hex");
 
       blobKey = generateBlobKey();
       await saveBlobBuffer(blobKey, cipherBuffer);

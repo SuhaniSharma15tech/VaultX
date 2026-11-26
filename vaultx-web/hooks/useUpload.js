@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { encryptFileAndMeta, wrapExistingAesKey, bufferToBase64 } from '../lib/vaultCrypto.js';
-import { getUserPubKey, uploadFile, createShareFromVault } from '../lib/api.js';
+import { encryptFileAndMeta, wrapExistingAesKey, computeSha256Checksum, bufferToBase64 } from '../lib/vaultCrypto.js';
+import { getUserPubKey, uploadFile, createShareFromVault, checkDuplicateFile } from '../lib/api.js';
 
 /**
  * useUpload
@@ -272,6 +272,10 @@ export function useUpload() {
       setStatus('success');
       return uploadResult;
     } catch (err) {
+      if (err?.data?.code === 'DUPLICATE_FILE') {
+        err.code = 'DUPLICATE_FILE';
+        err.existingFile = err.data.existingFile;
+      }
       setError(err.message || 'Upload failed');
       setStatus('error');
       throw err;
@@ -325,6 +329,16 @@ export function useUpload() {
         isNote: false
       };
 
+      // Compute SHA-256 file fingerprint and check for per-user duplicates before encrypting/uploading
+      const fileHash = await computeSha256Checksum(buffer);
+      const dupCheck = await checkDuplicateFile(fileHash);
+      if (dupCheck?.duplicate && dupCheck.existingFile) {
+        const dupErr = new Error('This file has already been uploaded.');
+        dupErr.code = 'DUPLICATE_FILE';
+        dupErr.existingFile = dupCheck.existingFile;
+        throw dupErr;
+      }
+
       // Encrypt file locally with an ephemeral AES-256-GCM key
       const cryptoResult = await encryptFileAndMeta(buffer, metaObj, 'MODE_B', null, {});
 
@@ -350,7 +364,8 @@ export function useUpload() {
         expiryMinutes: 10080, // 7 days base retention
         maxDownloads: 100,
         isBurnAfterReading: false,
-        isPasswordProtected: false
+        isPasswordProtected: false,
+        fileHash
       });
 
       let activeSession = null;
@@ -398,6 +413,10 @@ export function useUpload() {
       setStatus('idle');
       return uploadedRecord;
     } catch (err) {
+      if (err?.data?.code === 'DUPLICATE_FILE') {
+        err.code = 'DUPLICATE_FILE';
+        err.existingFile = err.data.existingFile;
+      }
       setError(err.message || 'Upload failed');
       setStatus('error');
       throw err;

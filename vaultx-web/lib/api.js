@@ -372,7 +372,8 @@ export async function uploadFile(payload) {
     isBurnAfterReading: Boolean(payload.isBurnAfterReading),
     expiryMinutes: payload.expiryMinutes || 60,
     maxDownloads: payload.maxDownloads || 1,
-    recipientUsername: payload.recipientUsername || null
+    recipientUsername: payload.recipientUsername || null,
+    fileHash: payload.fileHash || null
   };
 
   if (!FORCE_MOCK) {
@@ -397,6 +398,32 @@ export async function uploadFile(payload) {
 
   // Mock Store Implementation
   initMockData();
+  const ownerId = getCurrentOwnerKey();
+  if (ownerId !== 'anonymous' && requestBody.fileHash) {
+    const nowMs = Date.now();
+    const existingDup = Array.from(mockVaults.values()).find(
+      (v) =>
+        v.ownerId === ownerId &&
+        v.fileHash === requestBody.fileHash &&
+        !v.revoked &&
+        !v.burned &&
+        v.remainingDownloads > 0 &&
+        new Date(v.expiresAt).getTime() > nowMs
+    );
+    if (existingDup) {
+      throw new ApiError('This file has already been uploaded.', 409, {
+        code: 'DUPLICATE_FILE',
+        existingFile: {
+          id: existingDup.id,
+          fileId: existingDup.id,
+          mode: existingDup.mode,
+          createdAt: existingDup.createdAt,
+          expiresAt: existingDup.expiresAt,
+        },
+      });
+    }
+  }
+
   const fileId = generateRandomHex(8);
   const ownerToken = generateRandomHex(16);
   const expiryMs = (requestBody.expiryMinutes || 60) * 60 * 1000;
@@ -404,8 +431,9 @@ export async function uploadFile(payload) {
 
   const vaultRecord = {
     id: fileId,
-    ownerId: getCurrentOwnerKey(),
+    ownerId,
     ownerToken,
+    fileHash: requestBody.fileHash || null,
     mode: requestBody.mode,
     recipientUsername: requestBody.recipientUsername || null,
     encryptedBlobB64: requestBody.encryptedBlobB64,
@@ -608,6 +636,61 @@ export async function updateVaultSettings(id, ownerToken, settings = {}) {
   persistMockData();
 
   return { success: true, vault: updated };
+}
+
+/**
+ * Checks whether the current user already has an active upload matching fileHash (SHA-256).
+ */
+export async function checkDuplicateFile(fileHash) {
+  if (!fileHash) return { success: true, duplicate: false, existingFile: null };
+
+  const session = getAuthSession();
+  if (!FORCE_MOCK && session?.token) {
+    try {
+      const res = await fetch(`${BASE_URL}/vault/check-duplicate?hash=${encodeURIComponent(fileHash)}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json', ...getAuthHeaders() },
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (_) {
+      // Fallback to mock store check
+    }
+  }
+
+  initMockData();
+  const ownerId = getCurrentOwnerKey();
+  if (ownerId === 'anonymous') {
+    return { success: true, duplicate: false, existingFile: null };
+  }
+
+  const nowMs = Date.now();
+  const existing = Array.from(mockVaults.values()).find(
+    (v) =>
+      v.ownerId === ownerId &&
+      v.fileHash === fileHash &&
+      !v.revoked &&
+      !v.burned &&
+      v.remainingDownloads > 0 &&
+      new Date(v.expiresAt).getTime() > nowMs
+  );
+
+  if (!existing) {
+    return { success: true, duplicate: false, existingFile: null };
+  }
+
+  return {
+    success: true,
+    duplicate: true,
+    existingFile: {
+      id: existing.id,
+      fileId: existing.id,
+      mode: existing.mode,
+      createdAt: existing.createdAt,
+      expiresAt: existing.expiresAt,
+    },
+  };
 }
 
 /**

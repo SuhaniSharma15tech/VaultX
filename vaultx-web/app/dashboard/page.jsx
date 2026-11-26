@@ -29,6 +29,8 @@ export default function DashboardPage() {
   const [inspectStatus, setInspectStatus] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState('');
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState(null);
 
   const activeUserKey = user ? (user.id || user.email || 'guest') : null;
 
@@ -85,12 +87,20 @@ export default function DashboardPage() {
         if (prev && merged.some((v) => (v.fileId || v.id) === prev)) return prev;
         return merged.length > 0 ? (merged[0].fileId || merged[0].id) : null;
       });
+      setLastRefreshedAt(new Date());
     } catch (err) {
       setRefreshError(err.message || 'Failed to refresh vaults. Please try again.');
     } finally {
       setIsRefreshing(false);
     }
   }, [user, activeUserKey]);
+
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) return;
+    setRefreshTick((t) => t + 1);
+    const minDelay = new Promise((r) => setTimeout(r, 300));
+    await Promise.all([loadVaults(), minDelay]);
+  }, [isRefreshing, loadVaults]);
 
   // Redirect unauthenticated senders to login and clear stale state on account switch/logout
   useEffect(() => {
@@ -146,7 +156,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeFileId]);
+  }, [activeFileId, refreshTick]);
 
   const handleRevoked = (fileId) => {
     setSentVaults((prev) => {
@@ -178,8 +188,8 @@ export default function DashboardPage() {
           <nav className="flex items-center gap-2">
             <button
               type="button"
-              onClick={loadVaults}
-              disabled={isRefreshing}
+              onClick={handleRefresh}
+              disabled={isRefreshing || !user}
               className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 font-mono text-xs font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-white/10"
             >
               <RefreshCw className={`h-3.5 w-3.5 text-zinc-500 dark:text-[#A1A1AA] ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -201,11 +211,18 @@ export default function DashboardPage() {
       </header>
 
       <main className="relative z-10 mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-[#FAFAFA]">Sent Vaults</h2>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-[#A1A1AA]">
-            Locally tracked uploads from this browser. Inspect access logs, raw ciphertext headers, or trigger instant kill-switch revocation.
-          </p>
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-[#FAFAFA]">Sent Vaults</h2>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-[#A1A1AA]">
+              Locally tracked uploads from this browser. Inspect access logs, raw ciphertext headers, or trigger instant kill-switch revocation.
+            </p>
+          </div>
+          {lastRefreshedAt && (
+            <span className="font-mono text-[11px] text-zinc-500 dark:text-[#71717A]">
+              Synced {lastRefreshedAt.toLocaleTimeString()}
+            </span>
+          )}
         </div>
 
         {refreshError && (
@@ -357,7 +374,7 @@ export default function DashboardPage() {
                   </div>
 
                   <AuditTrail
-                    key={`audit-${activeFileId}`}
+                    key={`audit-${activeFileId}-${refreshTick}`}
                     fileId={activeFileId}
                     ownerToken={selectedVault.ownerToken}
                   />
