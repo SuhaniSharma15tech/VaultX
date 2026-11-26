@@ -297,27 +297,6 @@ export default function LoginPage() {
             </p>
           </div>
         </TerminalWindow>
-
-        {/* ── Demo credentials hint ── */}
-        <div className="mt-5 w-full rounded-xl border border-zinc-200 bg-white/95 p-3.5 backdrop-blur-xl shadow-md dark:border-white/10 dark:bg-[#0B0C10]/80">
-          <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-[#71717A]">
-            Demo Platform Credentials
-          </p>
-          <div className="space-y-1 font-mono text-[11px]">
-            <div className="flex justify-between">
-              <span className="text-zinc-500 dark:text-[#71717A]">EMAIL:</span>
-              <span className="text-zinc-900 dark:text-[#FAFAFA]">demo@vaultx.io</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-zinc-500 dark:text-[#71717A]">PASSWORD:</span>
-              <span className="text-zinc-700 dark:text-[#A1A1AA]">demo1234</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-zinc-500 dark:text-[#71717A]">UNIVERSAL:</span>
-              <span className="text-zinc-700 dark:text-[#A1A1AA]">vaultx</span>
-            </div>
-          </div>
-        </div>
       </main>
     </div>
   );
