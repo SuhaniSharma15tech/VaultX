@@ -23,15 +23,17 @@ export default function HomePage() {
   const [activeKeyInfo, setActiveKeyInfo] = useState(null);
 
   useEffect(() => {
+    if (user?.username) {
+      setActiveKeyInfo({ username: user.username });
+      return;
+    }
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const savedUser = window.localStorage.getItem('vaultx_active_username');
-        if (savedUser) {
-          setActiveKeyInfo({ username: savedUser });
-        }
-      } catch (_) { }
+        setActiveKeyInfo(savedUser ? { username: savedUser } : null);
+      } catch (_) {}
     }
-  }, []);
+  }, [user]);
 
   return (
     <div className="relative min-h-screen text-zinc-900 dark:text-[#FAFAFA] transition-colors duration-150">

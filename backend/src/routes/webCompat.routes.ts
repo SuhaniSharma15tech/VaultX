@@ -63,6 +63,28 @@ function verifyVaultOwnership(
   return null;
 }
 
+/**
+ * Deletes a blob from disk only if no other active (non-revoked, non-burned)
+ * VaultItem still references the same blobKey.
+ */
+async function safeDeleteBlobIfUnreferenced(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  blobKey: string | null | undefined,
+  excludeItemId: string
+): Promise<void> {
+  if (!blobKey) return;
+  const { count } = await supabase
+    .from("VaultItem")
+    .select("id", { count: "exact", head: true })
+    .eq("blobKey", blobKey)
+    .neq("id", excludeItemId)
+    .eq("isRevoked", false)
+    .eq("burned", false);
+  if ((count ?? 0) === 0) {
+    await deleteBlob(blobKey).catch(() => {});
+  }
+}
+
 const registerUserSchema = z.object({
   username: z.string().min(1).max(64),
   publicKeyPem: z.string().min(10),
@@ -161,6 +183,9 @@ const webRegisterSchema = z.object({
   name: z.string().min(1).max(80),
   email: z.string().email(),
   password: z.string().min(6).max(128),
+  username: z.string().min(3).max(64).optional(),
+  publicKeyPem: z.string().min(10).optional(),
+  fingerprint: z.string().min(8).optional(),
 });
 
 const webLoginSchema = z.object({
@@ -199,20 +224,27 @@ webCompatRouter.post(
       const passwordHash = await argon2.hash(data.password, { type: argon2.argon2id });
       const now = new Date().toISOString();
       const id = crypto.randomUUID();
+      const baseHandle =
+        (data.username || data.name || email.split("@")[0])
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, "")
+          .slice(0, 16) || "user";
+      const assignedUsername = data.username || `${baseHandle}_${crypto.randomBytes(3).toString("hex")}`;
 
       const { data: user, error: insertErr } = await supabase
         .from("User")
         .insert({
           id,
+          username: assignedUsername,
           email,
           displayName: data.name.trim(),
           passwordHash,
-          publicKey: "PENDING_KEY_SETUP",
-          publicKeyFingerprint: crypto.randomBytes(16).toString("hex"),
+          publicKey: data.publicKeyPem || "PENDING_KEY_SETUP",
+          publicKeyFingerprint: data.fingerprint || crypto.randomBytes(16).toString("hex"),
           createdAt: now,
           updatedAt: now,
         })
-        .select("id, email, displayName")
+        .select("id, username, email, displayName, publicKey, publicKeyFingerprint")
         .single();
 
       if (insertErr) throw new Error(insertErr.message);
@@ -227,8 +259,11 @@ webCompatRouter.post(
         success: true,
         user: {
           id: user.id,
+          username: user.username,
           email: user.email,
           name: user.displayName || email.split("@")[0],
+          publicKeyPem: user.publicKey,
+          fingerprint: user.publicKeyFingerprint,
         },
         token,
       });
@@ -252,7 +287,7 @@ webCompatRouter.post(
 
       const { data: user, error } = await supabase
         .from("User")
-        .select("id, email, displayName, passwordHash")
+        .select("id, username, email, displayName, publicKey, publicKeyFingerprint, passwordHash")
         .eq("email", email)
         .maybeSingle();
 
@@ -285,8 +320,11 @@ webCompatRouter.post(
         success: true,
         user: {
           id: user.id,
+          username: user.username,
           email: user.email,
           name: user.displayName || email.split("@")[0],
+          publicKeyPem: user.publicKey,
+          fingerprint: user.publicKeyFingerprint,
         },
         token,
       });
@@ -383,6 +421,196 @@ webCompatRouter.post(
       if (blobKey) {
         await deleteBlob(blobKey).catch(() => {});
       }
+      next(err);
+    }
+  }
+);
+
+const createShareSchema = z.object({
+  mode: z.enum(["MODE_A", "MODE_B"]).default("MODE_B"),
+  wrappedAesKeyB64: z.string().nullable().optional(),
+  isPasswordProtected: z.boolean().default(false),
+  isBurnAfterReading: z.boolean().default(false),
+  expiryMinutes: z.coerce.number().int().min(1).max(10080).default(60),
+  maxDownloads: z.coerce.number().int().min(1).max(1000).default(5),
+  recipientUsername: z.string().nullable().optional(),
+});
+
+/**
+ * POST /api/vault/:id/share
+ * Creates a new shareable vault entry reusing an already-uploaded encrypted blob
+ * without re-uploading the file. Enforces owner authorization.
+ */
+webCompatRouter.post(
+  "/vault/:id/share",
+  optionalAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const sourceId = String(req.params.id);
+      const ownerTokenHeader = String(req.headers["x-owner-token"] || "");
+      const data = createShareSchema.parse(req.body);
+      const supabase = getSupabaseClient();
+
+      const { data: source, error: fetchErr } = await supabase
+        .from("VaultItem")
+        .select("*")
+        .eq("id", sourceId)
+        .maybeSingle();
+
+      if (fetchErr) throw new Error(fetchErr.message);
+      if (!source) {
+        res.status(404).json({ success: false, message: `Vault '${sourceId}' not found` });
+        return;
+      }
+
+      const authErr = verifyVaultOwnership(req, source, ownerTokenHeader);
+      if (authErr) {
+        res.status(authErr.status).json({ success: false, message: authErr.message });
+        return;
+      }
+
+      if (source.isRevoked) {
+        res.status(410).json({ success: false, message: "Source file has been revoked" });
+        return;
+      }
+
+      if (!source.blobKey || !(await blobExists(source.blobKey))) {
+        res.status(404).json({ success: false, message: "Encrypted blob no longer exists" });
+        return;
+      }
+
+      const shareId = crypto.randomUUID();
+      const newOwnerToken = crypto.randomBytes(16).toString("hex");
+      const expiresAt = new Date(Date.now() + data.expiryMinutes * 60 * 1000).toISOString();
+      const effectiveMax = data.isBurnAfterReading ? 1 : data.maxDownloads;
+
+      const { data: created, error: insertErr } = await supabase
+        .from("VaultItem")
+        .insert({
+          id: shareId,
+          ownerId: source.ownerId ?? req.user?.userId ?? null,
+          ownerToken: newOwnerToken,
+          mode: data.mode,
+          recipientUsername: data.recipientUsername ?? null,
+          wrappedAesKeyB64: data.wrappedAesKeyB64 ?? null,
+          itemType: source.itemType || "FILE",
+          blobKey: source.blobKey,
+          encryptedMetadata: source.encryptedMetadata,
+          metadataIv: source.metadataIv,
+          fileIv: source.fileIv,
+          sha256Checksum: source.sha256Checksum,
+          sizeBytes: source.sizeBytes,
+          isPasswordProtected: data.isPasswordProtected,
+          isBurnAfterReading: data.isBurnAfterReading,
+          maxDownloads: effectiveMax,
+          remainingDownloads: effectiveMax,
+          burned: false,
+          isRevoked: false,
+          expiresAt,
+          createdAt: new Date().toISOString(),
+        })
+        .select("id, expiresAt")
+        .single();
+
+      if (insertErr) throw new Error(insertErr.message);
+
+      await supabase.from("AccessLog").insert({
+        id: crypto.randomUUID(),
+        itemId: created.id,
+        action: "CREATED",
+        ipHash: hashClientIp(req),
+        createdAt: new Date().toISOString(),
+      });
+
+      res.status(201).json({
+        success: true,
+        fileId: created.id,
+        ownerToken: newOwnerToken,
+        downloadUrl: `/v/${created.id}`,
+        expiresAt: toUtcIso(created.expiresAt),
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+const updateSettingsSchema = z.object({
+  mode: z.enum(["MODE_A", "MODE_B"]).optional(),
+  recipientUsername: z.string().nullable().optional(),
+  isPasswordProtected: z.boolean().optional(),
+  isBurnAfterReading: z.boolean().optional(),
+  expiryMinutes: z.coerce.number().int().min(1).max(10080).optional(),
+  maxDownloads: z.coerce.number().int().min(1).max(1000).optional(),
+});
+
+/**
+ * PATCH /api/vault/:id/settings
+ * Updates sharing settings strictly for the specified vault ID (owner-only).
+ */
+webCompatRouter.patch(
+  "/vault/:id/settings",
+  optionalAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = String(req.params.id);
+      const ownerToken = String(req.headers["x-owner-token"] || "");
+      const data = updateSettingsSchema.parse(req.body);
+      const supabase = getSupabaseClient();
+
+      const { data: vault, error: fetchErr } = await supabase
+        .from("VaultItem")
+        .select("id, ownerId, ownerToken, isRevoked")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (fetchErr) throw new Error(fetchErr.message);
+      if (!vault) {
+        res.status(404).json({ success: false, message: `Vault '${id}' not found` });
+        return;
+      }
+
+      const authErr = verifyVaultOwnership(req, vault, ownerToken);
+      if (authErr) {
+        res.status(authErr.status).json({ success: false, message: authErr.message });
+        return;
+      }
+      if (vault.isRevoked) {
+        res.status(410).json({ success: false, message: "Vault has been revoked" });
+        return;
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (data.mode !== undefined) updates.mode = data.mode;
+      if (data.recipientUsername !== undefined) updates.recipientUsername = data.recipientUsername;
+      if (data.isPasswordProtected !== undefined) updates.isPasswordProtected = data.isPasswordProtected;
+      if (data.isBurnAfterReading !== undefined) updates.isBurnAfterReading = data.isBurnAfterReading;
+      if (data.maxDownloads !== undefined) {
+        const effectiveMax = data.isBurnAfterReading ? 1 : data.maxDownloads;
+        updates.maxDownloads = effectiveMax;
+        updates.remainingDownloads = effectiveMax;
+      }
+      if (data.expiryMinutes !== undefined) {
+        updates.expiresAt = new Date(Date.now() + data.expiryMinutes * 60 * 1000).toISOString();
+      }
+
+      const { data: updated, error: updateErr } = await supabase
+        .from("VaultItem")
+        .update(updates)
+        .eq("id", id)
+        .select("id, mode, recipientUsername, isPasswordProtected, isBurnAfterReading, maxDownloads, expiresAt")
+        .single();
+
+      if (updateErr) throw new Error(updateErr.message);
+
+      res.json({
+        success: true,
+        vault: {
+          ...updated,
+          expiresAt: toUtcIso(updated.expiresAt),
+        },
+      });
+    } catch (err) {
       next(err);
     }
   }
@@ -565,7 +793,7 @@ webCompatRouter.post(
 
       const shouldBurn = updated.isBurnAfterReading || updated.remainingDownloads <= 0;
       if (shouldBurn) {
-        await deleteBlob(updated.blobKey).catch(() => {});
+        await safeDeleteBlobIfUnreferenced(supabase, updated.blobKey, updated.id);
         await supabase.from("VaultItem").update({ burned: true }).eq("id", updated.id);
         await supabase.from("AccessLog").insert({
           id: crypto.randomUUID(),
@@ -678,7 +906,7 @@ webCompatRouter.post(
         return;
       }
 
-      await deleteBlob(vault.blobKey);
+      await safeDeleteBlobIfUnreferenced(supabase, vault.blobKey, vault.id);
       await supabase
         .from("VaultItem")
         .update({ isRevoked: true, burned: true })

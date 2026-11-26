@@ -159,14 +159,17 @@ export async function webLogin({ email, password }) {
     success: true,
     user: {
       id: found.id || `mock-${normalEmail}`,
+      username: found.username || null,
       email: found.email,
       name: found.name || normalEmail.split('@')[0],
+      publicKeyPem: found.publicKeyPem || null,
+      fingerprint: found.fingerprint || null,
     },
     token: null,
   };
 }
 
-export async function webRegister({ name, email, password }) {
+export async function webRegister({ name, email, password, username, publicKeyPem, fingerprint }) {
   const cleanName = (name || '').trim();
   const normalEmail = (email || '').trim().toLowerCase();
   if (!cleanName || !normalEmail || !password) {
@@ -178,7 +181,7 @@ export async function webRegister({ name, email, password }) {
       const res = await fetch(`${BASE_URL}/web-auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: cleanName, email: normalEmail, password })
+        body: JSON.stringify({ name: cleanName, email: normalEmail, password, username, publicKeyPem, fingerprint })
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -196,11 +199,18 @@ export async function webRegister({ name, email, password }) {
     throw new ApiError('An account with this email already exists.', 409, { code: 'EMAIL_EXISTS' });
   }
 
+  const assignedUsername =
+    username ||
+    `${cleanName.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 14) || 'user'}_${generateRandomHex(3)}`;
+
   const newAccount = {
     id: `mock-${generateRandomHex(8)}`,
+    username: assignedUsername,
     name: cleanName,
     email: normalEmail,
     password,
+    publicKeyPem: publicKeyPem || null,
+    fingerprint: fingerprint || null,
   };
 
   if (typeof window !== 'undefined' && window.localStorage) {
@@ -213,12 +223,27 @@ export async function webRegister({ name, email, password }) {
     } catch (_) {}
   }
 
+  // Also register public key in mockUsers directory for Mode A recipient lookup
+  if (publicKeyPem) {
+    initMockData();
+    mockUsers.set(assignedUsername, {
+      username: assignedUsername,
+      publicKeyPem,
+      fingerprint: fingerprint || '00:00:00',
+      createdAt: new Date().toISOString(),
+    });
+    persistMockData();
+  }
+
   return {
     success: true,
     user: {
       id: newAccount.id,
+      username: newAccount.username,
       email: newAccount.email,
       name: newAccount.name,
+      publicKeyPem: newAccount.publicKeyPem,
+      fingerprint: newAccount.fingerprint,
     },
     token: null,
   };
@@ -415,6 +440,174 @@ export async function uploadFile(payload) {
     downloadUrl: `/v/${fileId}`,
     expiresAt
   };
+}
+
+/**
+ * Creates a new share link reusing an already-uploaded encrypted file on the server.
+ */
+export async function createShareFromVault(sourceFileId, ownerToken, sharePayload = {}) {
+  if (!sourceFileId) {
+    throw new ApiError('Source vault ID is required', 400);
+  }
+
+  const requestBody = {
+    mode: sharePayload.mode || 'MODE_B',
+    wrappedAesKeyB64: sharePayload.wrappedAesKeyB64 || null,
+    isPasswordProtected: Boolean(sharePayload.isPasswordProtected),
+    isBurnAfterReading: Boolean(sharePayload.isBurnAfterReading),
+    expiryMinutes: sharePayload.expiryMinutes || 60,
+    maxDownloads: sharePayload.maxDownloads || 5,
+    recipientUsername: sharePayload.recipientUsername || null,
+  };
+
+  if (!FORCE_MOCK) {
+    try {
+      const res = await fetch(`${BASE_URL}/vault/${encodeURIComponent(sourceFileId)}/share`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-owner-token': ownerToken || '',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new ApiError(errJson.message || errJson.error || `HTTP ${res.status}: Share creation failed`, res.status, errJson);
+      }
+
+      return await res.json();
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      // Network failure: fallback to mock store
+    }
+  }
+
+  // Mock Store Implementation
+  initMockData();
+  const source = mockVaults.get(sourceFileId);
+  if (!source) {
+    throw new ApiError(`Vault '${sourceFileId}' not found`, 404);
+  }
+  if (source.ownerId && source.ownerId !== 'anonymous' && source.ownerId !== getCurrentOwnerKey()) {
+    throw new ApiError('Forbidden: you do not own this vault', 403);
+  }
+  if (source.revoked) {
+    throw new ApiError('Source file has been revoked', 410);
+  }
+
+  const shareId = generateRandomHex(8);
+  const newOwnerToken = generateRandomHex(16);
+  const effectiveMax = requestBody.isBurnAfterReading ? 1 : requestBody.maxDownloads;
+  const expiresAt = new Date(Date.now() + requestBody.expiryMinutes * 60 * 1000).toISOString();
+
+  const shareRecord = {
+    ...source,
+    id: shareId,
+    ownerToken: newOwnerToken,
+    mode: requestBody.mode,
+    recipientUsername: requestBody.recipientUsername,
+    wrappedAesKeyB64: requestBody.wrappedAesKeyB64,
+    isPasswordProtected: requestBody.isPasswordProtected,
+    isBurnAfterReading: requestBody.isBurnAfterReading,
+    maxDownloads: effectiveMax,
+    remainingDownloads: effectiveMax,
+    expiresAt,
+    createdAt: new Date().toISOString(),
+    revoked: false,
+    burned: false,
+    logs: [
+      {
+        timestamp: new Date().toISOString(),
+        ipHash: 'mock-owner',
+        event: 'CREATED',
+      },
+    ],
+  };
+
+  mockVaults.set(shareId, shareRecord);
+  persistMockData();
+
+  return {
+    success: true,
+    fileId: shareId,
+    ownerToken: newOwnerToken,
+    downloadUrl: `/v/${shareId}`,
+    expiresAt,
+  };
+}
+
+/**
+ * Updates sharing settings strictly for the specified vault ID.
+ */
+export async function updateVaultSettings(id, ownerToken, settings = {}) {
+  if (!id) {
+    throw new ApiError('Vault ID is required', 400);
+  }
+
+  const body = {
+    mode: settings.mode,
+    recipientUsername: settings.recipientUsername ?? null,
+    isPasswordProtected: Boolean(settings.isPasswordProtected),
+    isBurnAfterReading: Boolean(settings.isBurnAfterReading),
+    expiryMinutes: settings.expiryMinutes,
+    maxDownloads: settings.maxDownloads,
+  };
+
+  if (!FORCE_MOCK) {
+    try {
+      const res = await fetch(`${BASE_URL}/vault/${encodeURIComponent(id)}/settings`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-owner-token': ownerToken || '',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new ApiError(errJson.message || errJson.error || `HTTP ${res.status}: Failed to update settings`, res.status, errJson);
+      }
+
+      return await res.json();
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      // Network failure: fallback to mock store
+    }
+  }
+
+  initMockData();
+  const vault = mockVaults.get(id);
+  if (!vault) {
+    throw new ApiError(`Vault '${id}' not found`, 404);
+  }
+  if (vault.ownerId && vault.ownerId !== 'anonymous' && vault.ownerId !== getCurrentOwnerKey()) {
+    throw new ApiError('Forbidden: you do not own this vault', 403);
+  }
+  if (vault.ownerToken && ownerToken && vault.ownerToken !== ownerToken) {
+    throw new ApiError('Unauthorized: invalid owner token', 401);
+  }
+
+  const effectiveMax = body.isBurnAfterReading ? 1 : (body.maxDownloads ?? vault.maxDownloads);
+  const updated = {
+    ...vault,
+    mode: body.mode || vault.mode,
+    recipientUsername: body.recipientUsername,
+    isPasswordProtected: body.isPasswordProtected,
+    isBurnAfterReading: body.isBurnAfterReading,
+    maxDownloads: effectiveMax,
+    remainingDownloads: effectiveMax,
+    expiresAt: body.expiryMinutes
+      ? new Date(Date.now() + body.expiryMinutes * 60 * 1000).toISOString()
+      : vault.expiresAt,
+  };
+  mockVaults.set(id, updated);
+  persistMockData();
+
+  return { success: true, vault: updated };
 }
 
 /**

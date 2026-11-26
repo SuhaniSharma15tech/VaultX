@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { encryptFileAndMeta, bufferToBase64 } from '../lib/vaultCrypto.js';
-import { getUserPubKey, uploadFile } from '../lib/api.js';
+import { encryptFileAndMeta, wrapExistingAesKey, bufferToBase64 } from '../lib/vaultCrypto.js';
+import { getUserPubKey, uploadFile, createShareFromVault } from '../lib/api.js';
 
 /**
  * useUpload
@@ -237,11 +237,14 @@ export function useUpload() {
         id: apiRes.fileId,
         fileId: apiRes.fileId,
         ownerId: ownerKey,
+        itemType: tab === 'text' ? 'SECRET_NOTE' : 'FILE',
         filename: metaObj.filename,
+        sizeBytes: metaObj.size,
         createdAt: new Date().toISOString(),
         expiresAt: apiRes.expiresAt,
         ownerToken: apiRes.ownerToken,
         mode,
+        status: 'SHARED',
         isBurnAfterReading,
         isPasswordProtected
       };
@@ -288,6 +291,244 @@ export function useUpload() {
     lookupRecipient
   ]);
 
+  /**
+   * Uploads the currently selected file once (encrypted with a random AES-256-GCM key)
+   * and returns the stored file record so it can be shared multiple times without re-uploading.
+   */
+  const uploadBaseFile = useCallback(async () => {
+    if (!file) {
+      setError('Please select a file to upload');
+      return null;
+    }
+
+    setError(null);
+    setStatus('encrypting');
+
+    try {
+      let buffer;
+      if (typeof file.arrayBuffer === 'function') {
+        buffer = await file.arrayBuffer();
+      } else if (file instanceof ArrayBuffer) {
+        buffer = file;
+      } else if (file instanceof Uint8Array) {
+        buffer = file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength);
+      } else if (file && typeof file === 'object' && file.data) {
+        buffer = file.data instanceof ArrayBuffer ? file.data : new TextEncoder().encode(String(file.data)).buffer;
+      } else {
+        buffer = new TextEncoder().encode(String(file)).buffer;
+      }
+
+      const metaObj = {
+        filename: file.name || 'file.dat',
+        mimeType: file.type || 'application/octet-stream',
+        size: buffer.byteLength,
+        isNote: false
+      };
+
+      // Encrypt file locally with an ephemeral AES-256-GCM key
+      const cryptoResult = await encryptFileAndMeta(buffer, metaObj, 'MODE_B', null, {});
+
+      setStatus('uploading');
+
+      let blobB64;
+      if (cryptoResult.encryptedBlob instanceof ArrayBuffer) {
+        blobB64 = bufferToBase64(cryptoResult.encryptedBlob);
+      } else if (cryptoResult.encryptedBlob && typeof cryptoResult.encryptedBlob.arrayBuffer === 'function') {
+        blobB64 = bufferToBase64(await cryptoResult.encryptedBlob.arrayBuffer());
+      } else {
+        blobB64 = bufferToBase64(cryptoResult.encryptedBlob);
+      }
+
+      const apiRes = await uploadFile({
+        encryptedBlobB64: blobB64,
+        ivB64: cryptoResult.ivB64,
+        metaIvB64: cryptoResult.metaIvB64,
+        encryptedMetaB64: cryptoResult.encryptedMetaB64,
+        wrappedAesKeyB64: null,
+        mode: 'MODE_B',
+        recipientUsername: null,
+        expiryMinutes: 10080, // 7 days base retention
+        maxDownloads: 100,
+        isBurnAfterReading: false,
+        isPasswordProtected: false
+      });
+
+      let activeSession = null;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          const rawSession = window.localStorage.getItem('vaultx_auth_session');
+          if (rawSession) {
+            const parsed = JSON.parse(rawSession);
+            if (parsed?.email) activeSession = parsed;
+          }
+        } catch (_) {}
+      }
+
+      const ownerKey = activeSession ? (activeSession.id || activeSession.email || 'guest') : null;
+      const uploadedRecord = {
+        id: apiRes.fileId,
+        fileId: apiRes.fileId,
+        ownerId: ownerKey,
+        itemType: 'FILE',
+        filename: metaObj.filename,
+        mimeType: metaObj.mimeType,
+        sizeBytes: metaObj.size,
+        createdAt: new Date().toISOString(),
+        expiresAt: apiRes.expiresAt,
+        ownerToken: apiRes.ownerToken,
+        fileKeyB64Url: cryptoResult.fragmentKeyB64,
+        sha256Checksum: cryptoResult.sha256Checksum,
+        mode: 'MODE_B',
+        status: 'UPLOADED',
+        isBaseUpload: true,
+      };
+
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          const storageKey = ownerKey ? `vaultx_sent_vaults_${ownerKey}` : 'vaultx_sent_vaults';
+          const rawSent = window.localStorage.getItem(storageKey);
+          const sentList = rawSent ? JSON.parse(rawSent) : [];
+          sentList.unshift(uploadedRecord);
+          window.localStorage.setItem(storageKey, JSON.stringify(sentList));
+        } catch (_) {}
+      }
+
+      // Clear selected file and return to idle so user can upload another file immediately
+      setFile(null);
+      setStatus('idle');
+      return uploadedRecord;
+    } catch (err) {
+      setError(err.message || 'Upload failed');
+      setStatus('error');
+      throw err;
+    }
+  }, [file]);
+
+  /**
+   * Generates a new encrypted share link for an already-uploaded file without re-uploading it.
+   */
+  const shareExistingFile = useCallback(async (uploadedRecord, shareOptions = {}) => {
+    if (!uploadedRecord?.fileId || !uploadedRecord?.fileKeyB64Url) {
+      throw new Error('Selected file is missing client encryption key');
+    }
+
+    const targetMode = shareOptions.mode || mode;
+    const targetRecipient = (shareOptions.recipientUsername ?? recipientUsername ?? '').trim();
+    const targetExpiry = shareOptions.expiryMinutes ?? expiryMinutes;
+    const targetMaxDl = shareOptions.maxDownloads ?? maxDownloads;
+    const targetBurn = shareOptions.isBurnAfterReading ?? isBurnAfterReading;
+    const targetPwdProtected = shareOptions.isPasswordProtected ?? isPasswordProtected;
+    const targetPassword = shareOptions.password ?? password;
+
+    if (targetMode === 'MODE_A' && !targetRecipient) {
+      throw new Error('Recipient username required for Mode A');
+    }
+    if (targetPwdProtected && !targetPassword) {
+      throw new Error('Password is required for password-protected vault');
+    }
+
+    let recipientPubKey = null;
+    if (targetMode === 'MODE_A') {
+      let lookup = recipientInfo;
+      if (!lookup || lookup.username !== targetRecipient) {
+        lookup = await lookupRecipient(targetRecipient);
+      }
+      if (!lookup || !lookup.publicKeyPem) {
+        throw new Error(`Recipient "${targetRecipient}" not found or has no public key`);
+      }
+      recipientPubKey = lookup.publicKeyPem;
+    }
+
+    const wrapped = await wrapExistingAesKey(
+      uploadedRecord.fileKeyB64Url,
+      targetMode,
+      recipientPubKey,
+      targetPwdProtected && targetPassword ? { password: targetPassword } : {}
+    );
+
+    const apiRes = await createShareFromVault(
+      uploadedRecord.fileId,
+      uploadedRecord.ownerToken,
+      {
+        mode: targetMode,
+        wrappedAesKeyB64: wrapped.wrappedAesKeyB64,
+        isPasswordProtected: targetPwdProtected,
+        isBurnAfterReading: targetBurn,
+        expiryMinutes: targetExpiry,
+        maxDownloads: targetMaxDl,
+        recipientUsername: targetMode === 'MODE_A' ? targetRecipient : null,
+      }
+    );
+
+    const origin =
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : 'http://localhost:3000';
+
+    const downloadPath = apiRes.downloadUrl.startsWith('http')
+      ? apiRes.downloadUrl
+      : `${origin}${apiRes.downloadUrl}`;
+
+    const fullShareUrl =
+      targetMode === 'MODE_B' && wrapped.fragmentKeyB64
+        ? `${downloadPath}#key=${wrapped.fragmentKeyB64}`
+        : downloadPath;
+
+    const shareRecord = {
+      id: apiRes.fileId,
+      fileId: apiRes.fileId,
+      sourceFileId: uploadedRecord.fileId,
+      ownerId: uploadedRecord.ownerId || null,
+      itemType: 'FILE',
+      filename: uploadedRecord.filename,
+      sizeBytes: uploadedRecord.sizeBytes,
+      createdAt: new Date().toISOString(),
+      expiresAt: apiRes.expiresAt,
+      ownerToken: apiRes.ownerToken,
+      mode: targetMode,
+      status: 'SHARED',
+      isBurnAfterReading: targetBurn,
+      isPasswordProtected: targetPwdProtected,
+    };
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const storageKey = uploadedRecord.ownerId
+          ? `vaultx_sent_vaults_${uploadedRecord.ownerId}`
+          : 'vaultx_sent_vaults';
+        const rawSent = window.localStorage.getItem(storageKey);
+        const sentList = rawSent ? JSON.parse(rawSent) : [];
+        sentList.unshift(shareRecord);
+        window.localStorage.setItem(storageKey, JSON.stringify(sentList));
+      } catch (_) {}
+    }
+
+    return {
+      fileId: apiRes.fileId,
+      ownerToken: apiRes.ownerToken,
+      downloadUrl: apiRes.downloadUrl,
+      fullShareUrl,
+      qrCodePayload: fullShareUrl,
+      expiresAt: apiRes.expiresAt,
+      sha256Checksum: uploadedRecord.sha256Checksum,
+      mode: targetMode,
+      expiryMinutes: targetExpiry,
+      maxDownloads: targetBurn ? 1 : targetMaxDl,
+      isBurnAfterReading: targetBurn,
+      isPasswordProtected: targetPwdProtected,
+    };
+  }, [
+    mode,
+    recipientUsername,
+    recipientInfo,
+    expiryMinutes,
+    maxDownloads,
+    isBurnAfterReading,
+    isPasswordProtected,
+    password,
+    lookupRecipient,
+  ]);
+
   return {
     tab,
     setTab,
@@ -315,6 +556,8 @@ export function useUpload() {
     result,
     error,
     executeUpload,
+    uploadBaseFile,
+    shareExistingFile,
     reset
   };
 }

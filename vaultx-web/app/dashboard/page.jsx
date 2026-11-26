@@ -71,6 +71,9 @@ export default function DashboardPage() {
           return {
             ...v,
             filename: localMatch?.filename || v.filename || `Vault ${(v.fileId || v.id).slice(0, 8)}`,
+            itemType: localMatch?.itemType || v.itemType || 'FILE',
+            sizeBytes: v.sizeBytes ?? localMatch?.sizeBytes ?? 0,
+            status: v.revoked ? 'REVOKED' : v.burned ? 'BURNED' : localMatch?.status || 'SHARED',
           };
         });
       } else {
@@ -274,16 +277,30 @@ export default function DashboardPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className={`truncate text-sm font-semibold ${isSelected ? 'text-blue-950 dark:text-[#FAFAFA]' : 'text-zinc-900 dark:text-[#FAFAFA]'}`}>
-                          {item.filename || 'Encrypted Payload'}
-                        </p>
-                        <p className="mt-0.5 font-mono text-[11px] text-zinc-500 dark:text-[#71717A]">
-                          ID: {itemId} &bull; {item.mode || 'MODE_B'}
+                        <div className="flex items-center gap-2">
+                          <span className="rounded border border-zinc-300 dark:border-white/15 bg-zinc-100 dark:bg-white/5 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase text-zinc-600 dark:text-zinc-300">
+                            {item.itemType === 'SECRET_NOTE' ? 'NOTE' : 'FILE'}
+                          </span>
+                          <p className={`truncate text-sm font-semibold ${isSelected ? 'text-blue-950 dark:text-[#FAFAFA]' : 'text-zinc-900 dark:text-[#FAFAFA]'}`}>
+                            {item.filename || 'Encrypted Payload'}
+                          </p>
+                        </div>
+                        <p className="mt-1 font-mono text-[11px] text-zinc-500 dark:text-[#71717A]">
+                          ID: {itemId.slice(0, 12)} &bull; {item.mode || 'MODE_B'}
+                          {item.sizeBytes ? ` • ${item.sizeBytes < 1024 ? `${item.sizeBytes} B` : `${(item.sizeBytes / 1024).toFixed(1)} KB`}` : ''}
                         </p>
                       </div>
-                      {item.revoked && (
+                      {item.revoked ? (
                         <span className="rounded border border-zinc-300 bg-zinc-100 px-2 py-0.5 font-mono text-[10px] font-bold text-zinc-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400">
                           REVOKED
+                        </span>
+                      ) : item.burned ? (
+                        <span className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-400">
+                          BURNED
+                        </span>
+                      ) : (
+                        <span className="rounded border border-[#10B981]/40 bg-[#10B981]/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-[#10B981]">
+                          {item.status || 'SHARED'}
                         </span>
                       )}
                     </div>

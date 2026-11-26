@@ -342,6 +342,88 @@ export async function encryptFileAndMeta(
   };
 }
 
+/**
+ * Wraps an already-generated AES-256-GCM key (Base64URL) for a new share link
+ * without re-encrypting or re-uploading the underlying file blob.
+ */
+export async function wrapExistingAesKey(
+  rawKeyB64Url,
+  mode = 'MODE_B',
+  recipientPublicKeyOrNull = null,
+  options = {}
+) {
+  const rawKeyBytes = base64UrlToBuffer(rawKeyB64Url);
+  if (rawKeyBytes.byteLength !== 32) {
+    throw new Error('Invalid base AES key length');
+  }
+
+  const aesKey = await webCrypto.subtle.importKey(
+    'raw',
+    rawKeyBytes,
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']
+  );
+
+  if (mode === 'MODE_A') {
+    if (!recipientPublicKeyOrNull) {
+      throw new Error('Recipient public key is required for Mode A sharing');
+    }
+    const recipientPubKey = await importPublicKey(recipientPublicKeyOrNull);
+    const wrappedBuf = await webCrypto.subtle.wrapKey('raw', aesKey, recipientPubKey, {
+      name: 'RSA-OAEP'
+    });
+    return {
+      wrappedAesKeyB64: bufferToBase64(wrappedBuf),
+      fragmentKeyB64: null
+    };
+  }
+
+  if (options && options.password) {
+    const salt = webCrypto.getRandomValues(new Uint8Array(16));
+    const keyIv = webCrypto.getRandomValues(new Uint8Array(12));
+    const baseKey = await webCrypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(options.password),
+      'PBKDF2',
+      false,
+      ['deriveKey']
+    );
+    const pbkdf2Key = await webCrypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt,
+        iterations: 100000,
+        hash: 'SHA-256'
+      },
+      baseKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt']
+    );
+    const encKeyBuf = await webCrypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: keyIv },
+      pbkdf2Key,
+      rawKeyBytes
+    );
+
+    const packed = new Uint8Array(16 + 12 + encKeyBuf.byteLength);
+    packed.set(salt, 0);
+    packed.set(keyIv, 16);
+    packed.set(new Uint8Array(encKeyBuf), 28);
+
+    return {
+      wrappedAesKeyB64: null,
+      fragmentKeyB64: bufferToBase64Url(packed)
+    };
+  }
+
+  return {
+    wrappedAesKeyB64: null,
+    fragmentKeyB64: rawKeyB64Url
+  };
+}
+
 // ==========================================
 // Decryption (Mode A & Mode B)
 // ==========================================

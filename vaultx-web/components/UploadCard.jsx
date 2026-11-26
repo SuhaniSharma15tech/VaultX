@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Upload,
@@ -19,8 +19,14 @@ import {
   RotateCcw,
   Eye,
   EyeOff,
+  File as FileIcon,
+  Clock,
+  Loader2,
+  ChevronRight,
 } from 'lucide-react';
 import { useUpload } from '../hooks/useUpload.js';
+import { useAuth, getUserVaultStorageKey } from '../lib/authContext.js';
+import { getUserPubKey, updateVaultSettings } from '../lib/api.js';
 import { QRModal } from './QRModal.jsx';
 import { TerminalWindow } from './TerminalWindow.jsx';
 import { ThemeSelect } from './ThemeSelect.jsx';
@@ -32,12 +38,46 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+function formatDate(iso) {
+  if (!iso) return '-';
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch (_) {
+    return '-';
+  }
+}
+
+function createDefaultFileSettings(seed = {}) {
+  const isBurn = Boolean(seed.isBurnAfterReading);
+  return {
+    mode: seed.mode || 'MODE_B',
+    recipientUsername: seed.recipientUsername || '',
+    recipientInfo: seed.recipientInfo || null,
+    expiryMinutes: Number(seed.expiryMinutes) || 60,
+    maxDownloads: isBurn ? 1 : Number(seed.maxDownloads) || 5,
+    isBurnAfterReading: isBurn,
+    isPasswordProtected: Boolean(seed.isPasswordProtected),
+    password: seed.password || '',
+  };
+}
+
+function getSettingsStorageKey(user) {
+  const ownerKey = user ? (user.id || user.email || 'guest') : 'guest';
+  return `vaultx_file_settings_${ownerKey}`;
+}
+
 /**
  * UploadCard
- * Obsidian Black (#050508), Matte Charcoal (#0B0C10), Cyber Green (#10B981),
- * Matrix Green (#22C55E), and Tactical Crimson (#EF4444) upload & encryption card.
+ * File Upload flow: Select File -> Upload File -> Recent File Card -> File Details & Settings (isolated per fileId) -> Encrypt & Share.
+ * Secret Text Note flow: Enter Note -> Configure Settings -> Encrypt & Share.
  */
 export function UploadCard() {
+  const { user } = useAuth();
   const {
     tab,
     setTab,
@@ -65,20 +105,138 @@ export function UploadCard() {
     result,
     error,
     executeUpload,
+    uploadBaseFile,
+    shareExistingFile,
     reset,
   } = useUpload();
 
   const [isDragging, setIsDragging] = useState(false);
-  const [isFileUploaded, setIsFileUploaded] = useState(false);
-  const [generatedLinks, setGeneratedLinks] = useState([]);
+  const [recentFiles, setRecentFiles] = useState([]);
+  const [selectedFileCardId, setSelectedFileCardId] = useState(null);
+
+  // Per-file isolated state keyed by fileId
+  const [settingsByFileId, setSettingsByFileId] = useState({});
+  const [cardLookupStatusMap, setCardLookupStatusMap] = useState({});
+  const [cardShowPasswordMap, setCardShowPasswordMap] = useState({});
+  const [shareStatusMap, setShareStatusMap] = useState({});
+  const [shareErrorMap, setShareErrorMap] = useState({});
+  const [shareResultMap, setShareResultMap] = useState({});
+  const [generatedLinksMap, setGeneratedLinksMap] = useState({});
+
   const [isQrOpen, setIsQrOpen] = useState(false);
+  const [qrUrl, setQrUrl] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [lookupStatus, setLookupStatus] = useState('');
+  const [showFormPassword, setShowFormPassword] = useState(false);
+  const [formLookupStatus, setFormLookupStatus] = useState('');
   const fileInputRef = useRef(null);
 
   const isBusy = status === 'encrypting' || status === 'uploading';
+
+  const persistSettingsMap = useCallback(
+    (mapToSave) => {
+      if (typeof window === 'undefined' || !window.localStorage) return;
+      try {
+        const sanitized = {};
+        for (const [fid, cfg] of Object.entries(mapToSave)) {
+          if (!cfg) continue;
+          sanitized[fid] = {
+            mode: cfg.mode,
+            recipientUsername: cfg.recipientUsername,
+            recipientInfo: cfg.recipientInfo,
+            expiryMinutes: cfg.expiryMinutes,
+            maxDownloads: cfg.maxDownloads,
+            isBurnAfterReading: cfg.isBurnAfterReading,
+            isPasswordProtected: cfg.isPasswordProtected,
+            // Do not persist plaintext password to localStorage
+            password: '',
+          };
+        }
+        window.localStorage.setItem(getSettingsStorageKey(user), JSON.stringify(sanitized));
+      } catch (_) {}
+    },
+    [user]
+  );
+
+  // Hydrate latest 3 uploaded files and their per-file settings for the active user
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    let hydratedSettings = {};
+    try {
+      const rawSettings = window.localStorage.getItem(getSettingsStorageKey(user));
+      const parsedSettings = rawSettings ? JSON.parse(rawSettings) : {};
+      if (parsedSettings && typeof parsedSettings === 'object') {
+        for (const [fid, cfg] of Object.entries(parsedSettings)) {
+          hydratedSettings[fid] = createDefaultFileSettings(cfg);
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const storageKey = getUserVaultStorageKey(user);
+      const raw = window.localStorage.getItem(storageKey);
+      const list = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(list)) {
+        const baseUploads = list
+          .filter((item) => item.itemType !== 'SECRET_NOTE' && item.fileKeyB64Url)
+          .slice(0, 3);
+        for (const item of baseUploads) {
+          const fid = item.fileId || item.id;
+          if (fid && !hydratedSettings[fid]) {
+            hydratedSettings[fid] = createDefaultFileSettings(item.settings || item);
+          }
+        }
+        setRecentFiles(baseUploads);
+      } else {
+        setRecentFiles([]);
+      }
+    } catch (_) {
+      setRecentFiles([]);
+    }
+
+    setSettingsByFileId(hydratedSettings);
+    setSelectedFileCardId(null);
+    setShareResultMap({});
+    setShareErrorMap({});
+    setShareStatusMap({});
+    setCardLookupStatusMap({});
+    setCardShowPasswordMap({});
+  }, [user]);
+
+  const selectedFileCard =
+    recentFiles.find((f) => (f.fileId || f.id) === selectedFileCardId) || null;
+  const activeCardId = selectedFileCard ? (selectedFileCard.fileId || selectedFileCard.id) : null;
+  const activeCardSettings = activeCardId
+    ? settingsByFileId[activeCardId] || createDefaultFileSettings(selectedFileCard)
+    : null;
+  const activeShareStatus = activeCardId ? shareStatusMap[activeCardId] || 'idle' : 'idle';
+  const activeShareError = activeCardId ? shareErrorMap[activeCardId] || '' : '';
+  const activeShareResult = activeCardId ? shareResultMap[activeCardId] || null : null;
+  const isSharing = activeShareStatus === 'sharing';
+
+  const updateCardSettings = useCallback(
+    (cardId, patch) => {
+      if (!cardId) return;
+      const cardRecord = recentFiles.find((f) => (f.fileId || f.id) === cardId);
+
+      setSettingsByFileId((prev) => {
+        const current = prev[cardId] || createDefaultFileSettings(cardRecord || {});
+        const next = { ...current, ...patch };
+        if (patch.isBurnAfterReading === true) {
+          next.maxDownloads = 1;
+        }
+        const nextMap = { ...prev, [cardId]: next };
+        persistSettingsMap(nextMap);
+
+        // Target only this specific fileId on the backend
+        if (cardRecord?.ownerToken) {
+          updateVaultSettings(cardId, cardRecord.ownerToken, next).catch(() => {});
+        }
+        return nextMap;
+      });
+    },
+    [recentFiles, persistSettingsMap]
+  );
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -99,8 +257,6 @@ export function UploadCard() {
     const dropped = e.dataTransfer?.files?.[0];
     if (dropped) {
       setFile(dropped);
-      setIsFileUploaded(false);
-      setGeneratedLinks([]);
     }
   };
 
@@ -108,24 +264,31 @@ export function UploadCard() {
     const selected = e.target.files?.[0];
     if (selected) {
       setFile(selected);
-      setIsFileUploaded(false);
-      setGeneratedLinks([]);
     }
   };
 
-  const handleLookupRecipient = async () => {
+  const handleFormLookupRecipient = async () => {
     const target = recipientUsername.trim();
     if (!target) return;
-    setLookupStatus('searching');
+    setFormLookupStatus('searching');
     const info = await lookupRecipient(target);
-    setLookupStatus(info ? 'found' : 'not_found');
+    setFormLookupStatus(info ? 'found' : 'not_found');
   };
 
-  const handleBurnToggle = (checked) => {
-    setIsBurnAfterReading(checked);
-    if (checked) {
-      setMaxDownloads(1);
-    }
+  const handleCardLookupRecipient = async (cardId, usernameToFind) => {
+    const target = (usernameToFind || '').trim();
+    if (!cardId || !target) return;
+    setCardLookupStatusMap((prev) => ({ ...prev, [cardId]: 'searching' }));
+    try {
+      const res = await getUserPubKey(target);
+      if (res && res.success) {
+        updateCardSettings(cardId, { recipientInfo: res });
+        setCardLookupStatusMap((prev) => ({ ...prev, [cardId]: 'found' }));
+        return;
+      }
+    } catch (_) {}
+    updateCardSettings(cardId, { recipientInfo: null });
+    setCardLookupStatusMap((prev) => ({ ...prev, [cardId]: 'not_found' }));
   };
 
   const handleCopyText = async (val, setter) => {
@@ -134,70 +297,476 @@ export function UploadCard() {
       await navigator.clipboard.writeText(val);
       setter(true);
       setTimeout(() => setter(false), 2000);
-    } catch (_) { }
+    } catch (_) {}
   };
 
-  const handleSubmit = async (e) => {
+  // File Upload tab submit: uploads the selected file and snapshots its initial independent settings
+  const handleFileUploadSubmit = async (e) => {
     e.preventDefault();
-    if (tab === 'file' && !isFileUploaded) {
-      if (!file) return;
-      setIsFileUploaded(true);
-      return;
-    }
+    if (!file) return;
+    const initialSettingsSnapshot = createDefaultFileSettings({
+      mode,
+      recipientUsername,
+      recipientInfo,
+      expiryMinutes,
+      maxDownloads,
+      isBurnAfterReading,
+      isPasswordProtected,
+      password,
+    });
+
     try {
-      const uploadResult = await executeUpload();
-      if (uploadResult?.fullShareUrl) {
-        setGeneratedLinks((prev) => [
-          {
-            fileId: uploadResult.fileId,
-            fullShareUrl: uploadResult.fullShareUrl,
-            mode,
-            expiryMinutes,
-            maxDownloads,
-            isBurnAfterReading,
-            isPasswordProtected,
-          },
-          ...prev,
-        ]);
+      const uploaded = await uploadBaseFile();
+      if (uploaded) {
+        const newId = uploaded.fileId || uploaded.id;
+        if (fileInputRef.current) fileInputRef.current.value = '';
+
+        setSettingsByFileId((prev) => {
+          const nextMap = { ...prev, [newId]: initialSettingsSnapshot };
+          persistSettingsMap(nextMap);
+          return nextMap;
+        });
+
+        // Sync initial settings for this specific fileId on backend
+        if (uploaded.ownerToken) {
+          updateVaultSettings(newId, uploaded.ownerToken, initialSettingsSnapshot).catch(() => {});
+        }
+
+        setRecentFiles((prev) => [uploaded, ...prev].slice(0, 3));
+        setSelectedFileCardId(newId);
       }
-    } catch (_) {
-      // Error state is handled by useUpload
+    } catch (_) {}
+  };
+
+  // Selected File Card -> Encrypt & Share using ONLY that card's isolated settings
+  const handleShareSelectedFile = async () => {
+    if (!selectedFileCard || !activeCardId || !activeCardSettings) return;
+    setShareStatusMap((prev) => ({ ...prev, [activeCardId]: 'sharing' }));
+    setShareErrorMap((prev) => ({ ...prev, [activeCardId]: '' }));
+
+    try {
+      const res = await shareExistingFile(selectedFileCard, activeCardSettings);
+      setShareResultMap((prev) => ({ ...prev, [activeCardId]: res }));
+      setShareStatusMap((prev) => ({ ...prev, [activeCardId]: 'success' }));
+
+      setRecentFiles((prev) =>
+        prev.map((item) =>
+          (item.fileId || item.id) === activeCardId ? { ...item, status: 'SHARED' } : item
+        )
+      );
+      setGeneratedLinksMap((prev) => ({
+        ...prev,
+        [activeCardId]: [res, ...(prev[activeCardId] || [])],
+      }));
+    } catch (err) {
+      setShareErrorMap((prev) => ({
+        ...prev,
+        [activeCardId]: err.message || 'Failed to generate share link',
+      }));
+      setShareStatusMap((prev) => ({ ...prev, [activeCardId]: 'error' }));
     }
   };
 
-  const handleReset = () => {
+  // Secret Text Note tab submit
+  const handleNoteSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await executeUpload();
+    } catch (_) {}
+  };
+
+  const handleResetNote = () => {
     reset();
-    setIsFileUploaded(false);
-    setGeneratedLinks([]);
-    setLookupStatus('');
+    setFormLookupStatus('');
     setCopiedLink(false);
     setCopiedToken(false);
     setIsQrOpen(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  };
+
+  const formSettings = {
+    mode,
+    recipientUsername,
+    recipientInfo,
+    expiryMinutes,
+    maxDownloads,
+    isBurnAfterReading,
+    isPasswordProtected,
+    password,
+  };
+
+  const updateFormSettings = (patch) => {
+    if (patch.mode !== undefined) setMode(patch.mode);
+    if (patch.recipientUsername !== undefined) setRecipientUsername(patch.recipientUsername);
+    if (patch.expiryMinutes !== undefined) setExpiryMinutes(patch.expiryMinutes);
+    if (patch.maxDownloads !== undefined) setMaxDownloads(patch.maxDownloads);
+    if (patch.isBurnAfterReading !== undefined) {
+      setIsBurnAfterReading(patch.isBurnAfterReading);
+      if (patch.isBurnAfterReading) setMaxDownloads(1);
     }
+    if (patch.isPasswordProtected !== undefined) setIsPasswordProtected(patch.isPasswordProtected);
+    if (patch.password !== undefined) setPassword(patch.password);
   };
 
-  const needsFileUploadStep = tab === 'file' && !isFileUploaded;
+  const renderShareControls = ({
+    scopeId,
+    settings,
+    onUpdate,
+    disabled,
+    recipientLookupStatus,
+    onLookupRecipient,
+    showPwd,
+    onToggleShowPwd,
+  }) => (
+    <div className="space-y-4">
+      {/* Mode Selector */}
+      <div className="mode-selector rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-[#07080B] p-3.5">
+        <p className="mb-2.5 text-xs font-medium text-zinc-500 dark:text-[#71717A]">
+          Cryptographic Sharing Mode
+        </p>
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          <label
+            className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${
+              settings.mode === 'MODE_A'
+                ? 'border-[#10B981] bg-[#10B981]/10'
+                : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] hover:border-zinc-300 dark:hover:border-white/20'
+            }`}
+          >
+            <input
+              type="radio"
+              name={`vaultx-mode-${scopeId}`}
+              value="MODE_A"
+              checked={settings.mode === 'MODE_A'}
+              onChange={() => onUpdate({ mode: 'MODE_A' })}
+              disabled={disabled}
+              className="mt-0.5 accent-[#10B981]"
+            />
+            <div>
+              <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-zinc-900 dark:text-[#FAFAFA]">
+                <UserCheck className={`h-3.5 w-3.5 ${settings.mode === 'MODE_A' ? 'text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+                <span>Mode A: Recipient Public Key</span>
+              </div>
+              <p className="mt-1 text-xs text-zinc-600 dark:text-[#A1A1AA]">
+                AES key wrapped with recipient RSA-OAEP public key. Zero fragment.
+              </p>
+            </div>
+          </label>
 
-  const getActionLabel = () => {
-    if (needsFileUploadStep) return 'Upload File';
-    if (status === 'encrypting') return 'Encrypting...';
-    if (status === 'uploading') return 'Uploading...';
-    if (status === 'error') return 'Retry Encrypt & Share';
-    return 'Encrypt & Share';
-  };
+          <label
+            className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${
+              settings.mode === 'MODE_B'
+                ? 'border-[#10B981] bg-[#10B981]/10'
+                : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] hover:border-zinc-300 dark:hover:border-white/20'
+            }`}
+          >
+            <input
+              type="radio"
+              name={`vaultx-mode-${scopeId}`}
+              value="MODE_B"
+              checked={settings.mode === 'MODE_B'}
+              onChange={() => onUpdate({ mode: 'MODE_B' })}
+              disabled={disabled}
+              className="mt-0.5 accent-[#10B981]"
+            />
+            <div>
+              <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-zinc-900 dark:text-[#FAFAFA]">
+                <Link2 className={`h-3.5 w-3.5 ${settings.mode === 'MODE_B' ? 'text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+                <span>Mode B: Anonymous Fragment Link</span>
+              </div>
+              <p className="mt-1 text-xs text-zinc-600 dark:text-[#A1A1AA]">
+                Ephemeral AES key stored only in URL{' '}
+                <code className="rounded border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-1 py-0.5 text-zinc-700 dark:text-zinc-200">
+                  #key=
+                </code>{' '}
+                fragment.
+              </p>
+            </div>
+          </label>
+        </div>
 
-  const isSubmitDisabled = needsFileUploadStep
-    ? isBusy || !file
-    : isBusy ||
-    (tab === 'file' && !file) ||
-    (tab === 'text' && !textNote.trim()) ||
-    (mode === 'MODE_A' && !recipientUsername.trim()) ||
-    (isPasswordProtected && !password);
+        {settings.mode === 'MODE_A' && (
+          <div className="mt-3.5 space-y-2.5 border-t border-zinc-200 dark:border-white/10 pt-3.5">
+            <label htmlFor={`vaultx-recipient-${scopeId}`} className="block font-mono text-xs font-medium text-zinc-600 dark:text-[#A1A1AA]">
+              Recipient Handle &amp; Key Verification
+            </label>
+            <div className="flex gap-2">
+              <input
+                id={`vaultx-recipient-${scopeId}`}
+                type="text"
+                value={settings.recipientUsername}
+                onChange={(e) => onUpdate({ recipientUsername: e.target.value, recipientInfo: null })}
+                disabled={disabled}
+                placeholder="Enter recipient handle (e.g. alice_3f9a1c)"
+                className="recipient-input flex-1 rounded-md border border-zinc-300 dark:border-white/10 bg-white dark:bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-zinc-900 dark:text-[#FAFAFA] placeholder-zinc-400 dark:placeholder-[#71717A] focus:border-[#10B981] focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={onLookupRecipient}
+                disabled={disabled || !settings.recipientUsername.trim()}
+                className="btn-lookup-recipient inline-flex items-center gap-1.5 rounded-md border border-zinc-300 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-3 py-1.5 font-mono text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-white/10 disabled:opacity-50"
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span>Verify Key</span>
+              </button>
+            </div>
+
+            {settings.recipientInfo && (
+              <div className="recipient-fingerprint rounded-lg border border-emerald-500/35 bg-emerald-950/20 p-2.5 text-xs">
+                <p className="font-mono font-semibold text-emerald-400">
+                  Verified Key for {settings.recipientInfo.username}
+                </p>
+                <p className="mt-1 break-all font-mono text-[11px] text-[#A1A1AA]">
+                  Fingerprint: {settings.recipientInfo.fingerprint}
+                </p>
+              </div>
+            )}
+
+            {recipientLookupStatus === 'not_found' && !settings.recipientInfo && (
+              <p className="font-mono text-xs text-red-400">
+                Recipient not found. Ask them to register or generate a keypair via Key Setup first.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Expiration, Download Limits & Security Options */}
+      <div className="controls-grid grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-[#07080B] p-3.5 sm:grid-cols-2">
+        <div>
+          <label htmlFor={`vaultx-ttl-${scopeId}`} className="mb-1 block text-xs font-medium text-zinc-500 dark:text-[#71717A]">
+            Expiration (TTL)
+          </label>
+          <ThemeSelect
+            id={`vaultx-ttl-${scopeId}`}
+            value={settings.expiryMinutes}
+            onChange={(val) => onUpdate({ expiryMinutes: Number(val) })}
+            disabled={disabled}
+            options={[
+              { value: 10, label: '10 Minutes' },
+              { value: 60, label: '1 Hour' },
+              { value: 1440, label: '24 Hours' },
+              { value: 10080, label: '7 Days' },
+            ]}
+          />
+        </div>
+
+        <div>
+          <label htmlFor={`vaultx-max-downloads-${scopeId}`} className="mb-1 block text-xs font-medium text-zinc-500 dark:text-[#71717A]">
+            Max Downloads
+          </label>
+          <input
+            id={`vaultx-max-downloads-${scopeId}`}
+            type="number"
+            min={1}
+            max={100}
+            value={settings.maxDownloads}
+            onChange={(e) => onUpdate({ maxDownloads: Math.max(1, Number(e.target.value) || 1) })}
+            disabled={disabled || settings.isBurnAfterReading}
+            className="max-downloads-input w-full rounded-md border border-zinc-300 dark:border-white/10 bg-white dark:bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-zinc-900 dark:text-[#FAFAFA] focus:border-[#10B981] focus:outline-none disabled:opacity-50"
+          />
+        </div>
+
+        {/* Burn After Reading */}
+        <div
+          className={`flex items-center justify-between gap-2.5 rounded-lg border px-3 py-2 transition-colors sm:col-span-2 ${
+            settings.isBurnAfterReading
+              ? 'border-red-500/50 bg-gradient-to-r from-red-950/30 to-[#0B0C10] text-red-400'
+              : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] text-zinc-600 dark:text-[#A1A1AA]'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <input
+              id={`vaultx-burn-${scopeId}`}
+              type="checkbox"
+              checked={settings.isBurnAfterReading}
+              onChange={(e) => onUpdate({ isBurnAfterReading: e.target.checked })}
+              disabled={disabled}
+              className="burn-checkbox h-4 w-4 rounded border-white/20 bg-[#050508] accent-red-500"
+            />
+            <label htmlFor={`vaultx-burn-${scopeId}`} className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium">
+              <Flame className={`h-3.5 w-3.5 ${settings.isBurnAfterReading ? 'text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+              <span>Burn After Reading (1 View)</span>
+            </label>
+          </div>
+          {settings.isBurnAfterReading && (
+            <span className="rounded border border-red-500/40 bg-red-500/15 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-red-400">
+              Self-Destruct Armed
+            </span>
+          )}
+        </div>
+
+        {/* Password Protection */}
+        <div
+          className={`space-y-2.5 rounded-lg border px-3 py-2.5 transition-colors sm:col-span-2 ${
+            settings.isPasswordProtected
+              ? 'border-red-500/40 bg-red-500/10 text-red-400'
+              : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] text-zinc-600 dark:text-[#A1A1AA]'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5">
+              <input
+                id={`vaultx-password-toggle-${scopeId}`}
+                type="checkbox"
+                checked={settings.isPasswordProtected}
+                onChange={(e) => onUpdate({ isPasswordProtected: e.target.checked })}
+                disabled={disabled}
+                className="password-toggle h-4 w-4 rounded border-white/20 bg-[#050508] accent-red-500"
+              />
+              <label htmlFor={`vaultx-password-toggle-${scopeId}`} className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium">
+                <Lock className={`h-3.5 w-3.5 ${settings.isPasswordProtected ? 'text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+                <span>Require Additional Password (PBKDF2 key wrapping)</span>
+              </label>
+            </div>
+            {settings.isPasswordProtected && (
+              <span className="rounded border border-red-500/40 bg-red-500/15 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-red-400">
+                Locked
+              </span>
+            )}
+          </div>
+
+          {settings.isPasswordProtected && (
+            <div className="relative">
+              <input
+                type={showPwd ? 'text' : 'password'}
+                value={settings.password}
+                onChange={(e) => onUpdate({ password: e.target.value })}
+                disabled={disabled}
+                placeholder="Enter link protection password..."
+                aria-label="Vault protection password"
+                className="password-input w-full rounded-md border border-red-500/30 bg-[#050508] px-3 py-1.5 pr-10 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-red-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={onToggleShowPwd}
+                disabled={disabled}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#71717A] hover:text-[#FAFAFA] transition-colors focus:outline-none"
+                aria-label={showPwd ? 'Hide password' : 'Show password'}
+              >
+                {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderShareOutput = (outputResult, extraLinks = []) => (
+    <div className="share-output hud-well mt-4 space-y-4 rounded-xl border border-emerald-500/35 p-4">
+      <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+        <h3 className="font-mono text-sm font-bold text-emerald-400">
+          Vault Ready &amp; Encrypted
+        </h3>
+        <span className="font-mono text-xs text-[#71717A]">ID: {outputResult.fileId}</span>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block font-mono text-xs font-medium text-[#71717A]">
+          Shareable Zero-Knowledge Link
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="text"
+            readOnly
+            value={outputResult.fullShareUrl}
+            aria-label="Shareable link"
+            className="share-url-input min-w-0 flex-1 rounded-md border border-white/10 bg-[#0B0C10] px-3 py-1.5 font-mono text-xs text-zinc-200 select-all"
+          />
+          <button
+            type="button"
+            onClick={() => handleCopyText(outputResult.fullShareUrl, setCopiedLink)}
+            className="btn-copy-link inline-flex items-center gap-1.5 rounded-md bg-[#10B981] px-3 py-1.5 font-mono text-xs font-semibold text-white shadow-md shadow-emerald-500/20 hover:bg-[#059669]"
+          >
+            {copiedLink ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            <span>{copiedLink ? 'Copied' : 'Copy'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setQrUrl(outputResult.fullShareUrl);
+              setIsQrOpen(true);
+            }}
+            className="btn-open-qr inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 font-mono text-xs font-medium text-zinc-200 hover:bg-white/10"
+          >
+            <QrCode className="h-3.5 w-3.5" />
+            <span>QR Code</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="owner-token-banner rounded-lg border border-red-500/30 bg-red-500/5 p-3">
+        <div className="flex items-start gap-2.5">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+          <div className="min-w-0 flex-1">
+            <p className="font-mono text-xs font-bold text-[#FAFAFA]">Owner Revocation Token</p>
+            <p className="mt-0.5 text-xs text-[#A1A1AA]">
+              Save this token to audit access or destroy the vault early from the{' '}
+              <Link href="/dashboard" className="text-zinc-200 underline hover:text-white">
+                Sender Dashboard
+              </Link>
+              .
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <code className="flex-1 truncate rounded border border-white/10 bg-[#050508] px-2.5 py-1 font-mono text-xs text-zinc-200 select-all">
+                {outputResult.ownerToken}
+              </code>
+              <button
+                type="button"
+                onClick={() => handleCopyText(outputResult.ownerToken, setCopiedToken)}
+                className="btn-copy-token inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-xs font-medium text-zinc-200 hover:bg-white/10"
+              >
+                {copiedToken ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                <span>{copiedToken ? 'Copied' : 'Copy'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {outputResult.sha256Checksum && (
+        <p className="truncate font-mono text-[11px] text-[#71717A]">
+          Plaintext SHA-256: {outputResult.sha256Checksum}
+        </p>
+      )}
+
+      {extraLinks.length > 1 && (
+        <div className="border-t border-white/10 pt-3">
+          <p className="mb-2 font-mono text-[11px] font-medium text-[#A1A1AA]">
+            Generated Links for This File ({extraLinks.length})
+          </p>
+          <div className="max-h-36 space-y-1.5 overflow-y-auto pr-1">
+            {extraLinks.map((entry, idx) => (
+              <div
+                key={`${entry.fileId}-${idx}`}
+                className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-[#0B0C10] px-2.5 py-1.5"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-mono text-[11px] text-zinc-200">
+                    {entry.fullShareUrl}
+                  </p>
+                  <p className="font-mono text-[10px] text-[#71717A]">
+                    {entry.mode} &bull; {entry.maxDownloads}dl &bull; {entry.expiryMinutes}m
+                    {entry.isBurnAfterReading ? ' • Burn' : ''}
+                    {entry.isPasswordProtected ? ' • Password' : ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard?.writeText(entry.fullShareUrl)}
+                  className="shrink-0 rounded border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] text-zinc-200 hover:bg-white/10"
+                >
+                  Copy
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <section className="upload-card">
+    <section className="upload-card space-y-5">
       <TerminalWindow>
         <div className="p-4 sm:p-5">
           {/* Dual Input Tabs */}
@@ -208,12 +777,13 @@ export function UploadCard() {
               aria-selected={tab === 'file'}
               onClick={() => setTab('file')}
               disabled={isBusy}
-              className={`tab-file inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${tab === 'file'
-                ? 'border-zinc-900 bg-zinc-900 text-white dark:border-[#10B981]/60 dark:bg-[#10B981]/15 dark:text-white'
-                : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-[#A1A1AA] dark:hover:border-white/20 dark:hover:text-[#FAFAFA]'
-                }`}
+              className={`tab-file inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${
+                tab === 'file'
+                  ? 'border-[#10B981]/60 bg-[#10B981]/15 text-zinc-900 dark:text-white'
+                  : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-500 dark:text-[#A1A1AA] hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-900 dark:hover:text-[#FAFAFA]'
+              }`}
             >
-              <Upload className={`h-3.5 w-3.5 ${tab === 'file' ? 'text-white dark:text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+              <Upload className={`h-3.5 w-3.5 ${tab === 'file' ? 'text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
               <span>File Upload</span>
             </button>
 
@@ -223,28 +793,30 @@ export function UploadCard() {
               aria-selected={tab === 'text'}
               onClick={() => setTab('text')}
               disabled={isBusy}
-              className={`tab-note inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${tab === 'text'
-                ? 'border-zinc-900 bg-zinc-900 text-white dark:border-[#10B981]/60 dark:bg-[#10B981]/15 dark:text-white'
-                : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-[#A1A1AA] dark:hover:border-white/20 dark:hover:text-[#FAFAFA]'
-                }`}
+              className={`tab-note inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${
+                tab === 'text'
+                  ? 'border-[#10B981]/60 bg-[#10B981]/15 text-zinc-900 dark:text-white'
+                  : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-500 dark:text-[#A1A1AA] hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-900 dark:hover:text-[#FAFAFA]'
+              }`}
             >
-              <FileText className={`h-3.5 w-3.5 ${tab === 'text' ? 'text-white dark:text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+              <FileText className={`h-3.5 w-3.5 ${tab === 'text' ? 'text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
               <span>Secret Text Note</span>
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Tab Panel: File Dropzone vs Secret Text Editor */}
-            {tab === 'file' ? (
+          {tab === 'file' ? (
+            <form onSubmit={handleFileUploadSubmit} className="space-y-4">
+              {/* Dropzone */}
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => !isBusy && fileInputRef.current?.click()}
-                className={`dropzone hud-well flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-5 text-center transition-all ${isDragging
-                  ? 'border-zinc-900 bg-zinc-100 dark:border-[#10B981] dark:bg-[#10B981]/10'
-                  : 'border-zinc-300 hover:border-zinc-400 dark:border-white/15 dark:hover:border-white/30'
-                  }`}
+                className={`dropzone hud-well flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-5 text-center transition-all ${
+                  isDragging
+                    ? 'border-[#10B981] bg-[#10B981]/10'
+                    : 'border-zinc-300 dark:border-white/15 hover:border-zinc-400 dark:hover:border-white/30'
+                }`}
               >
                 <input
                   ref={fileInputRef}
@@ -255,18 +827,10 @@ export function UploadCard() {
                   aria-label="Select file to encrypt"
                 />
                 {file ? (
-                  <div className="flex w-full max-w-md items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3 text-left dark:border-white/10 dark:bg-[#0B0C10]">
+                  <div className="flex w-full max-w-md items-center justify-between rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] px-4 py-3 text-left">
                     <div className="min-w-0 pr-3">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-[#FAFAFA]">{file.name}</p>
-                        {isFileUploaded && (
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#10B981]/40 bg-[#10B981]/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#4ADE80]">
-                            <Check className="h-2.5 w-2.5" />
-                            <span>Uploaded</span>
-                          </span>
-                        )}
-                      </div>
-                      <p className="font-mono text-xs text-[#71717A]">
+                      <p className="truncate text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">{file.name}</p>
+                      <p className="font-mono text-xs text-zinc-500 dark:text-[#71717A]">
                         {formatBytes(file.size)} &bull; {file.type || 'application/octet-stream'}
                       </p>
                     </div>
@@ -275,11 +839,9 @@ export function UploadCard() {
                       onClick={(e) => {
                         e.stopPropagation();
                         setFile(null);
-                        setIsFileUploaded(false);
-                        setGeneratedLinks([]);
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
-                      className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:text-[#71717A] dark:hover:bg-white/5 dark:hover:text-[#FAFAFA]"
+                      className="rounded p-1 text-zinc-400 dark:text-[#71717A] hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-[#FAFAFA]"
                       aria-label="Remove selected file"
                     >
                       <X className="h-4 w-4" />
@@ -287,8 +849,8 @@ export function UploadCard() {
                   </div>
                 ) : (
                   <>
-                    <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-full border border-zinc-300 bg-zinc-100 dark:border-[#10B981]/40 dark:bg-[#10B981]/15">
-                      <Upload className="h-5 w-5 text-zinc-800 dark:text-[#10B981]" />
+                    <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-full border border-[#10B981]/40 bg-[#10B981]/15">
+                      <Upload className="h-5 w-5 text-[#10B981]" />
                     </div>
                     <p className="text-sm font-medium text-zinc-900 dark:text-[#FAFAFA]">
                       Drag and drop a file here, or click to browse
@@ -299,13 +861,53 @@ export function UploadCard() {
                   </>
                 )}
               </div>
-            ) : (
+
+              {renderShareControls({
+                scopeId: 'upload-form',
+                settings: formSettings,
+                onUpdate: updateFormSettings,
+                disabled: isBusy,
+                recipientLookupStatus: formLookupStatus,
+                onLookupRecipient: handleFormLookupRecipient,
+                showPwd: showFormPassword,
+                onToggleShowPwd: () => setShowFormPassword((p) => !p),
+              })}
+
+              {error && (
+                <div className="error-banner flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Always shows Upload File (never turns into Encrypt & Share) */}
+              <button
+                type="submit"
+                disabled={isBusy || !file}
+                className="btn-upload inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#10B981] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-lg shadow-emerald-500/25 transition-all hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+              >
+                {isBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                <span>
+                  {status === 'encrypting'
+                    ? 'Encrypting...'
+                    : status === 'uploading'
+                    ? 'Uploading...'
+                    : 'Upload File'}
+                </span>
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleNoteSubmit} className="space-y-4">
               <div className="secret-note-editor">
                 <div className="mb-1.5 flex items-center justify-between">
                   <label htmlFor="vaultx-secret-note" className="font-mono text-xs font-medium text-zinc-600 dark:text-[#A1A1AA]">
                     Secret Text Payload
                   </label>
-                  <span className="font-mono text-xs text-zinc-400 dark:text-[#71717A]">
+                  <span className="font-mono text-xs text-zinc-500 dark:text-[#71717A]">
                     {new TextEncoder().encode(textNote).byteLength} bytes
                   </span>
                 </div>
@@ -316,401 +918,221 @@ export function UploadCard() {
                   onChange={(e) => setTextNote(e.target.value)}
                   disabled={isBusy}
                   placeholder="Paste API keys, recovery phrases, or private notes..."
-                  className="secret-note-textarea hud-well w-full rounded-xl border border-zinc-200 p-3.5 font-mono text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none dark:border-white/10 dark:text-[#FAFAFA] dark:placeholder-[#71717A] dark:focus:border-[#10B981]"
+                  className="secret-note-textarea hud-well w-full rounded-xl border border-zinc-200 dark:border-white/10 p-3.5 font-mono text-sm text-zinc-900 dark:text-[#FAFAFA] placeholder-zinc-400 dark:placeholder-[#71717A] focus:border-[#10B981] focus:outline-none"
                 />
               </div>
-            )}
 
-            {/* Mode Selector */}
-            <div className="mode-selector rounded-xl border border-zinc-200 bg-zinc-50 p-3.5 dark:border-white/10 dark:bg-[#07080B]">
-              <p className="mb-2.5 text-xs font-medium text-zinc-500 dark:text-[#71717A]">
-                Cryptographic Sharing Mode
-              </p>
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                <label
-                  className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${mode === 'MODE_A'
-                    ? 'border-zinc-900 bg-zinc-200/60 dark:border-[#10B981] dark:bg-[#10B981]/10'
-                    : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-white/10 dark:bg-[#0B0C10] dark:hover:border-white/20'
-                    }`}
-                >
-                  <input
-                    type="radio"
-                    name="vaultx-mode"
-                    value="MODE_A"
-                    checked={mode === 'MODE_A'}
-                    onChange={() => setMode('MODE_A')}
-                    disabled={isBusy}
-                    className="mt-0.5 accent-zinc-900 dark:accent-[#10B981]"
-                  />
-                  <div>
-                    <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-zinc-900 dark:text-[#FAFAFA]">
-                      <UserCheck className={`h-3.5 w-3.5 ${mode === 'MODE_A' ? 'text-zinc-900 dark:text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
-                      <span>Mode A: Recipient Public Key</span>
-                    </div>
-                    <p className="mt-1 text-xs text-zinc-600 dark:text-[#A1A1AA]">
-                      AES key wrapped with recipient RSA-OAEP public key. Zero fragment.
-                    </p>
-                  </div>
-                </label>
+              {renderShareControls({
+                scopeId: 'note-form',
+                settings: formSettings,
+                onUpdate: updateFormSettings,
+                disabled: isBusy,
+                recipientLookupStatus: formLookupStatus,
+                onLookupRecipient: handleFormLookupRecipient,
+                showPwd: showFormPassword,
+                onToggleShowPwd: () => setShowFormPassword((p) => !p),
+              })}
 
-                <label
-                  className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${mode === 'MODE_B'
-                    ? 'border-zinc-900 bg-zinc-200/60 dark:border-[#10B981] dark:bg-[#10B981]/10'
-                    : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-white/10 dark:bg-[#0B0C10] dark:hover:border-white/20'
-                    }`}
-                >
-                  <input
-                    type="radio"
-                    name="vaultx-mode"
-                    value="MODE_B"
-                    checked={mode === 'MODE_B'}
-                    onChange={() => setMode('MODE_B')}
-                    disabled={isBusy}
-                    className="mt-0.5 accent-zinc-900 dark:accent-[#10B981]"
-                  />
-                  <div>
-                    <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-zinc-900 dark:text-[#FAFAFA]">
-                      <Link2 className={`h-3.5 w-3.5 ${mode === 'MODE_B' ? 'text-zinc-900 dark:text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
-                      <span>Mode B: Anonymous Fragment Link</span>
-                    </div>
-                    <p className="mt-1 text-xs text-zinc-600 dark:text-[#A1A1AA]">
-                      Ephemeral AES key stored only in URL{' '}
-                      <code className="rounded border border-zinc-200 bg-zinc-100 px-1 py-0.5 text-zinc-800 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200">
-                        #key=
-                      </code>{' '}
-                      fragment.
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {mode === 'MODE_A' && (
-                <div className="mt-3.5 space-y-2.5 border-t border-zinc-200 dark:border-white/10 pt-3.5">
-                  <label htmlFor="vaultx-recipient" className="block font-mono text-xs font-medium text-zinc-600 dark:text-[#A1A1AA]">
-                    Recipient Handle &amp; Key Verification
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      id="vaultx-recipient"
-                      type="text"
-                      value={recipientUsername}
-                      onChange={(e) => {
-                        setRecipientUsername(e.target.value);
-                        setLookupStatus('');
-                      }}
-                      disabled={isBusy}
-                      placeholder="Enter recipient handle (e.g. alice)"
-                      className="recipient-input flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none dark:border-white/10 dark:bg-[#0B0C10] dark:text-[#FAFAFA] dark:placeholder-[#71717A] dark:focus:border-[#10B981]"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleLookupRecipient}
-                      disabled={isBusy || !recipientUsername.trim()}
-                      className="btn-lookup-recipient inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-xs font-medium text-zinc-800 hover:bg-zinc-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10"
-                    >
-                      <Search className="h-3.5 w-3.5" />
-                      <span>Verify Key</span>
-                    </button>
-                  </div>
-
-                  {recipientInfo && (
-                    <div className="recipient-fingerprint rounded-lg border border-zinc-300 bg-zinc-100 p-2.5 text-xs dark:border-emerald-500/35 dark:bg-emerald-950/20">
-                      <p className="font-mono font-semibold text-zinc-900 dark:text-emerald-400">
-                        Verified Key for {recipientInfo.username}
-                      </p>
-                      <p className="mt-1 break-all font-mono text-[11px] text-zinc-600 dark:text-[#A1A1AA]">
-                        Fingerprint: {recipientInfo.fingerprint}
-                      </p>
-                    </div>
-                  )}
-
-                  {lookupStatus === 'not_found' && !recipientInfo && (
-                    <p className="font-mono text-xs text-zinc-700 dark:text-red-400">
-                      Recipient not found. Ask them to generate a keypair via Key Setup first.
-                    </p>
-                  )}
+              {error && (
+                <div className="error-banner flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{error}</span>
                 </div>
               )}
-            </div>
 
-            {/* Expiration, Download Limits & Security Options */}
-            <div className="controls-grid grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3.5 sm:grid-cols-2 dark:border-white/10 dark:bg-[#07080B]">
-              <div>
-                <label htmlFor="vaultx-ttl" className="mb-1 block text-xs font-medium text-zinc-600 dark:text-[#71717A]">
-                  Expiration (TTL)
-                </label>
-                <ThemeSelect
-                  id="vaultx-ttl"
-                  value={expiryMinutes}
-                  onChange={(val) => setExpiryMinutes(Number(val))}
-                  disabled={isBusy}
-                  options={[
-                    { value: 10, label: '10 Minutes' },
-                    { value: 60, label: '1 Hour' },
-                    { value: 1440, label: '24 Hours' },
-                    { value: 10080, label: '7 Days' },
-                  ]}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="vaultx-max-downloads" className="mb-1 block text-xs font-medium text-zinc-600 dark:text-[#71717A]">
-                  Max Downloads
-                </label>
-                <input
-                  id="vaultx-max-downloads"
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={maxDownloads}
-                  onChange={(e) => setMaxDownloads(Math.max(1, Number(e.target.value) || 1))}
-                  disabled={isBusy || isBurnAfterReading}
-                  className="max-downloads-input w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none disabled:opacity-50 dark:border-white/10 dark:bg-[#0B0C10] dark:text-[#FAFAFA] dark:focus:border-[#10B981]"
-                />
-              </div>
-
-              {/* Burn After Reading (1 View) */}
-              <div
-                className={`flex items-center justify-between gap-2.5 rounded-lg border px-3 py-2 transition-colors sm:col-span-2 ${isBurnAfterReading
-                  ? 'border-zinc-900 bg-zinc-200 text-zinc-900 dark:border-red-500/50 dark:bg-gradient-to-r dark:from-red-950/30 dark:to-[#0B0C10] dark:text-red-400'
-                  : 'border-zinc-200 bg-white text-zinc-700 dark:border-white/10 dark:bg-[#0B0C10] dark:text-[#A1A1AA]'
-                  }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <input
-                    id="vaultx-burn"
-                    type="checkbox"
-                    checked={isBurnAfterReading}
-                    onChange={(e) => handleBurnToggle(e.target.checked)}
-                    disabled={isBusy}
-                    className="burn-checkbox h-4 w-4 rounded accent-zinc-900 dark:border-white/20 dark:bg-[#050508] dark:accent-red-500"
-                  />
-                  <label htmlFor="vaultx-burn" className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium">
-                    <Flame className={`h-3.5 w-3.5 ${isBurnAfterReading ? 'text-zinc-900 dark:text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
-                    <span>Burn After Reading (1 View)</span>
-                  </label>
-                </div>
-                {isBurnAfterReading && (
-                  <span className="rounded border border-zinc-400 bg-zinc-300 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-900 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400">
-                    Self-Destruct Armed
-                  </span>
-                )}
-              </div>
-
-              {/* Password Protection */}
-              <div
-                className={`space-y-2.5 rounded-lg border px-3 py-2.5 transition-colors sm:col-span-2 ${isPasswordProtected
-                  ? 'border-zinc-900 bg-zinc-200 text-zinc-900 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400'
-                  : 'border-zinc-200 bg-white text-zinc-700 dark:border-white/10 dark:bg-[#0B0C10] dark:text-[#A1A1AA]'
-                  }`}
-              >
-                <div className="flex items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <input
-                      id="vaultx-password-toggle"
-                      type="checkbox"
-                      checked={isPasswordProtected}
-                      onChange={(e) => setIsPasswordProtected(e.target.checked)}
-                      disabled={isBusy}
-                      className="password-toggle h-4 w-4 rounded accent-zinc-900 dark:border-white/20 dark:bg-[#050508] dark:accent-red-500"
-                    />
-                    <label htmlFor="vaultx-password-toggle" className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium">
-                      <Lock className={`h-3.5 w-3.5 ${isPasswordProtected ? 'text-zinc-900 dark:text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
-                      <span>Require Additional Password (PBKDF2 key wrapping)</span>
-                    </label>
-                  </div>
-                  {isPasswordProtected && (
-                    <span className="rounded border border-zinc-400 bg-zinc-300 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-900 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400">
-                      Locked
-                    </span>
-                  )}
-                </div>
-
-                {isPasswordProtected && (
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={isBusy}
-                      placeholder="Enter link protection password..."
-                      aria-label="Vault protection password"
-                      className="password-input w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 pr-10 font-mono text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none dark:border-red-500/30 dark:bg-[#050508] dark:text-[#FAFAFA] dark:placeholder-[#71717A] dark:focus:border-red-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      disabled={isBusy}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-900 dark:text-[#71717A] dark:hover:text-[#FAFAFA] transition-colors focus:outline-none"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Error Display */}
-            {error && (
-              <div className="error-banner flex items-start gap-2 rounded-lg border border-zinc-400 bg-zinc-100 p-3 text-xs text-zinc-900 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Dynamic Action Button */}
-            <div className="flex items-center gap-3">
-              <button
-                type="submit"
-                disabled={isSubmitDisabled}
-                className="btn-upload inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-900 text-white hover:bg-black shadow-lg shadow-zinc-900/15 dark:bg-[#10B981] dark:shadow-emerald-500/25 dark:hover:bg-[#059669] px-5 py-3 font-mono text-sm font-semibold tracking-wide transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-              >
-                {needsFileUploadStep ? (
-                  <Upload className="h-4 w-4" />
-                ) : (
-                  <Lock className="h-4 w-4" />
-                )}
-                <span>{getActionLabel()}</span>
-              </button>
-
-              {(status === 'success' || status === 'error') && (
+              <div className="flex items-center gap-3">
                 <button
-                  type="button"
-                  onClick={handleReset}
-                  className="btn-reset inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-4 py-3 font-mono text-xs font-semibold text-zinc-800 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10"
+                  type="submit"
+                  disabled={
+                    isBusy ||
+                    !textNote.trim() ||
+                    (mode === 'MODE_A' && !recipientUsername.trim()) ||
+                    (isPasswordProtected && !password)
+                  }
+                  className="btn-upload inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#10B981] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-lg shadow-emerald-500/25 transition-all hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                 >
-                  <RotateCcw className="h-4 w-4" />
-                  <span>Reset</span>
+                  <Lock className="h-4 w-4" />
+                  <span>
+                    {status === 'encrypting'
+                      ? 'Encrypting...'
+                      : status === 'uploading'
+                      ? 'Uploading...'
+                      : status === 'success'
+                      ? 'Encrypted & Shared'
+                      : status === 'error'
+                      ? 'Retry Encrypt & Share'
+                      : 'Encrypt & Share'}
+                  </span>
                 </button>
-              )}
-            </div>
-          </form>
 
-          {/* Share Output Section */}
-          {status === 'success' && result && (
-            <div className="share-output hud-well mt-5 space-y-4 rounded-xl border border-zinc-300 p-4 dark:border-emerald-500/35">
-              <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 pb-2.5">
-                <h3 className="font-mono text-sm font-bold text-zinc-900 dark:text-emerald-400">
-                  Vault Ready &amp; Encrypted
-                </h3>
-                <span className="font-mono text-xs text-zinc-500 dark:text-[#71717A]">ID: {result.fileId}</span>
-              </div>
-
-              {/* Shareable Link */}
-              <div>
-                <label className="mb-1.5 block font-mono text-xs font-medium text-zinc-600 dark:text-[#71717A]">
-                  Shareable Zero-Knowledge Link
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={result.fullShareUrl}
-                    aria-label="Shareable link"
-                    className="share-url-input min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-xs text-zinc-900 dark:border-white/10 dark:bg-[#0B0C10] dark:text-zinc-200 select-all"
-                  />
+                {(status === 'success' || status === 'error') && (
                   <button
                     type="button"
-                    onClick={() => handleCopyText(result.fullShareUrl, setCopiedLink)}
-                    className="btn-copy-link inline-flex items-center gap-1.5 rounded-md bg-zinc-900 px-3 py-1.5 font-mono text-xs font-semibold text-white hover:bg-black dark:bg-[#10B981] dark:shadow-emerald-500/20 dark:hover:bg-[#059669]"
+                    onClick={handleResetNote}
+                    className="btn-reset inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-4 py-3 font-mono text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-white/10"
                   >
-                    {copiedLink ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    <span>{copiedLink ? 'Copied' : 'Copy'}</span>
+                    <RotateCcw className="h-4 w-4" />
+                    <span>Reset</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsQrOpen(true)}
-                    className="btn-open-qr inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-xs font-medium text-zinc-800 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10"
-                  >
-                    <QrCode className="h-3.5 w-3.5" />
-                    <span>QR Code</span>
-                  </button>
-                </div>
+                )}
               </div>
 
-              {/* Owner Revocation Token Banner */}
-              <div className="owner-token-banner rounded-lg border border-zinc-300 bg-zinc-100 p-3 dark:border-red-500/30 dark:bg-red-500/5">
-                <div className="flex items-start gap-2.5">
-                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-zinc-700 dark:text-red-400" />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-mono text-xs font-bold text-zinc-900 dark:text-[#FAFAFA]">Owner Revocation Token</p>
-                    <p className="mt-0.5 text-xs text-zinc-600 dark:text-[#A1A1AA]">
-                      Save this token to audit access or destroy the vault early from the{' '}
-                      <Link href="/dashboard" className="text-zinc-900 underline hover:text-black dark:text-zinc-200 dark:hover:text-white font-medium">
-                        Sender Dashboard
-                      </Link>
-                      .
-                    </p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <code className="flex-1 truncate rounded border border-zinc-300 bg-white px-2.5 py-1 font-mono text-xs text-zinc-900 dark:border-white/10 dark:bg-[#050508] dark:text-zinc-200 select-all">
-                        {result.ownerToken}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyText(result.ownerToken, setCopiedToken)}
-                        className="btn-copy-token inline-flex items-center gap-1 rounded border border-zinc-300 bg-white px-2.5 py-1 font-mono text-xs font-medium text-zinc-800 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10"
-                      >
-                        {copiedToken ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                        <span>{copiedToken ? 'Copied' : 'Copy'}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {result.sha256Checksum && (
-                <p className="truncate font-mono text-[11px] text-[#71717A]">
-                  Plaintext SHA-256: {result.sha256Checksum}
-                </p>
-              )}
-
-              {generatedLinks.length > 1 && (
-                <div className="border-t border-white/10 pt-3">
-                  <p className="mb-2 font-mono text-[11px] font-medium text-[#A1A1AA]">
-                    Generated Links for This File ({generatedLinks.length})
-                  </p>
-                  <div className="max-h-36 space-y-1.5 overflow-y-auto pr-1">
-                    {generatedLinks.map((entry, idx) => (
-                      <div
-                        key={`${entry.fileId}-${idx}`}
-                        className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-[#0B0C10] px-2.5 py-1.5"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-mono text-[11px] text-zinc-200">
-                            {entry.fullShareUrl}
-                          </p>
-                          <p className="font-mono text-[10px] text-[#71717A]">
-                            {entry.mode} &bull; {entry.maxDownloads}dl &bull; {entry.expiryMinutes}m
-                            {entry.isBurnAfterReading ? ' • Burn' : ''}
-                            {entry.isPasswordProtected ? ' • Password' : ''}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => navigator.clipboard?.writeText(entry.fullShareUrl)}
-                          className="shrink-0 rounded border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] text-zinc-200 hover:bg-white/10"
-                        >
-                          Copy
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+              {status === 'success' && result && renderShareOutput(result)}
+            </form>
           )}
         </div>
       </TerminalWindow>
 
+      {/* Recent Files (Latest 3 Uploaded Files) */}
+      {tab === 'file' && recentFiles.length > 0 && (
+        <TerminalWindow>
+          <div className="p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 pb-2.5">
+              <div>
+                <h2 className="font-mono text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">
+                  Recent Files
+                </h2>
+                <p className="text-xs text-zinc-500 dark:text-[#71717A]">
+                  Click a file card to configure its independent settings and generate share links.
+                </p>
+              </div>
+              <Link
+                href="/dashboard"
+                className="font-mono text-xs font-medium text-[#10B981] hover:text-[#4ADE80]"
+              >
+                View All &rarr;
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+              {recentFiles.slice(0, 3).map((item) => {
+                const itemId = item.fileId || item.id;
+                const isSelected = itemId === selectedFileCardId;
+                return (
+                  <button
+                    key={itemId}
+                    type="button"
+                    onClick={() => setSelectedFileCardId(isSelected ? null : itemId)}
+                    className={`group flex flex-col justify-between rounded-xl border p-3.5 text-left transition-all ${
+                      isSelected
+                        ? 'border-[#10B981] bg-[#10B981]/10 shadow-[0_0_20px_-5px_rgba(16,185,129,0.25)]'
+                        : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-[#07080B] hover:border-zinc-300 dark:hover:border-white/25'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10]">
+                        <FileIcon className="h-4 w-4 text-[#10B981]" />
+                      </div>
+                      <span
+                        className={`rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${
+                          item.status === 'SHARED'
+                            ? 'border-[#10B981]/40 bg-[#10B981]/15 text-[#4ADE80]'
+                            : 'border-zinc-300 dark:border-white/15 bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300'
+                        }`}
+                      >
+                        {item.status || 'UPLOADED'}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 min-w-0">
+                      <p className="truncate text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">
+                        {item.filename || 'Encrypted File'}
+                      </p>
+                      <div className="mt-1 flex items-center justify-between font-mono text-[11px] text-zinc-500 dark:text-[#71717A]">
+                        <span>{formatBytes(item.sizeBytes || 0)}</span>
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatDate(item.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 flex items-center justify-between border-t border-zinc-200 dark:border-white/10 pt-2 font-mono text-[11px] text-[#10B981]">
+                      <span>{isSelected ? 'Configuring...' : 'Configure & Share'}</span>
+                      <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isSelected ? 'rotate-90' : ''}`} />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selected File Details & Isolated Share Settings */}
+            {selectedFileCard && activeCardSettings && (
+              <div className="mt-4 space-y-4 rounded-xl border border-[#10B981]/30 bg-zinc-50 dark:bg-[#050508]/80 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 dark:border-white/10 pb-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-mono text-sm font-bold text-zinc-900 dark:text-[#FAFAFA]">
+                      {selectedFileCard.filename}
+                    </p>
+                    <p className="font-mono text-[11px] text-zinc-500 dark:text-[#71717A]">
+                      {formatBytes(selectedFileCard.sizeBytes || 0)} &bull; Uploaded {formatDate(selectedFileCard.createdAt)} &bull; ID: {activeCardId}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFileCardId(null)}
+                    className="rounded p-1 text-zinc-400 hover:bg-white/5 hover:text-zinc-900 dark:hover:text-[#FAFAFA]"
+                    aria-label="Close file details"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {renderShareControls({
+                  scopeId: `card-${activeCardId}`,
+                  settings: activeCardSettings,
+                  onUpdate: (patch) => updateCardSettings(activeCardId, patch),
+                  disabled: isSharing,
+                  recipientLookupStatus: cardLookupStatusMap[activeCardId] || '',
+                  onLookupRecipient: () =>
+                    handleCardLookupRecipient(activeCardId, activeCardSettings.recipientUsername),
+                  showPwd: Boolean(cardShowPasswordMap[activeCardId]),
+                  onToggleShowPwd: () =>
+                    setCardShowPasswordMap((prev) => ({
+                      ...prev,
+                      [activeCardId]: !prev[activeCardId],
+                    })),
+                })}
+
+                {activeShareError && (
+                  <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>{activeShareError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleShareSelectedFile}
+                  disabled={
+                    isSharing ||
+                    (activeCardSettings.mode === 'MODE_A' &&
+                      !activeCardSettings.recipientUsername.trim()) ||
+                    (activeCardSettings.isPasswordProtected && !activeCardSettings.password)
+                  }
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#10B981] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-lg shadow-emerald-500/25 transition-all hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                >
+                  {isSharing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Lock className="h-4 w-4" />
+                  )}
+                  <span>{isSharing ? 'Generating Share Link...' : 'Encrypt & Share'}</span>
+                </button>
+
+                {activeShareStatus === 'success' &&
+                  activeShareResult &&
+                  renderShareOutput(activeShareResult, generatedLinksMap[activeCardId] || [])}
+              </div>
+            )}
+          </div>
+        </TerminalWindow>
+      )}
+
       <QRModal
         isOpen={isQrOpen}
         onClose={() => setIsQrOpen(false)}
-        shareUrl={result?.fullShareUrl || ''}
+        shareUrl={qrUrl || result?.fullShareUrl || ''}
       />
     </section>
   );
