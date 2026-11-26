@@ -168,11 +168,10 @@ export default function LoginPage() {
                     disabled={isSubmitting}
                     placeholder="you@example.com"
                     autoComplete="email"
-                    className={`hud-well w-full rounded-md border py-2 pl-10 pr-3 font-mono text-sm text-zinc-900 placeholder-zinc-400 transition-colors focus:outline-none dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
-                      emailError
+                    className={`hud-well w-full rounded-md border py-2 pl-10 pr-3 font-mono text-sm text-zinc-900 placeholder-zinc-400 transition-colors focus:outline-none dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${emailError
                         ? 'border-blue-900 focus:border-blue-950 dark:border-red-500/60 dark:focus:border-red-500'
                         : 'border-zinc-300 focus:border-zinc-900 dark:border-white/10 dark:focus:border-[#10B981]'
-                    }`}
+                      }`}
                   />
                 </div>
                 {emailError && (
@@ -205,11 +204,10 @@ export default function LoginPage() {
                     disabled={isSubmitting}
                     placeholder="Enter your password"
                     autoComplete="current-password"
-                    className={`hud-well w-full rounded-md border py-2 pl-10 pr-10 font-mono text-sm text-zinc-900 placeholder-zinc-400 transition-colors focus:outline-none dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
-                      passwordError
+                    className={`hud-well w-full rounded-md border py-2 pl-10 pr-10 font-mono text-sm text-zinc-900 placeholder-zinc-400 transition-colors focus:outline-none dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${passwordError
                         ? 'border-blue-900 focus:border-blue-950 dark:border-red-500/60 dark:focus:border-red-500'
                         : 'border-zinc-300 focus:border-zinc-900 dark:border-white/10 dark:focus:border-[#10B981]'
-                    }`}
+                      }`}
                   />
                   <button
                     type="button"
