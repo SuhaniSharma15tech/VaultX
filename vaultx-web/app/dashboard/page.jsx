@@ -8,6 +8,7 @@ import { HexInspector } from '../../components/dashboard/HexInspector.jsx';
 import { RevokeButton } from '../../components/dashboard/RevokeButton.jsx';
 import { TerminalWindow } from '../../components/TerminalWindow.jsx';
 import { ThemeToggle } from '../../components/ThemeToggle.jsx';
+import { AuthNavButton } from '../../components/AuthNavButton.jsx';
 import { getMetadata } from '../../lib/api.js';
 
 /**
@@ -123,6 +124,7 @@ export default function DashboardPage() {
               <span>New Vault</span>
             </Link>
 
+            <AuthNavButton variant="outline" mono />
             <ThemeToggle />
           </nav>
         </div>

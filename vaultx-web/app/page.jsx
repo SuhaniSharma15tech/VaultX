@@ -6,6 +6,7 @@ import { Shield, Key, LayoutDashboard } from 'lucide-react';
 import { UploadCard } from '../components/UploadCard.jsx';
 import { KeySetupModal } from '../components/KeySetupModal.jsx';
 import { ThemeToggle } from '../components/ThemeToggle.jsx';
+import { AuthNavButton } from '../components/AuthNavButton.jsx';
 
 /**
  * HomePage (/)
@@ -62,6 +63,7 @@ export default function HomePage() {
               <span>Dashboard</span>
             </Link>
 
+            <AuthNavButton variant="primary" />
             <ThemeToggle />
           </nav>
         </div>
