@@ -1,13 +1,30 @@
 import crypto from "crypto";
-import fsp from "fs/promises";
-import path from "path";
 import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
-import { env } from "../config/env";
-import { prisma } from "../lib/prisma";
-import { blobExists, deleteBlob, generateBlobKey } from "../services/storage.service";
+import { getSupabaseClient } from "../lib/supabase";
+import {
+  blobExists,
+  deleteBlob,
+  generateBlobKey,
+  readBlobBuffer,
+  saveBlobBuffer,
+} from "../services/storage.service";
 
 export const webCompatRouter = Router();
+
+/**
+ * Prisma creates `TIMESTAMP(3)` (without time zone) columns in PostgreSQL.
+ * PostgREST returns them without a trailing `Z`, which JS `new Date()` would
+ * otherwise interpret in local timezone (e.g. IST) instead of UTC.
+ */
+function parseUtcDate(val: string): Date {
+  const hasTz = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(val);
+  return new Date(hasTz ? val : `${val}Z`);
+}
+
+function toUtcIso(val: string): string {
+  return parseUtcDate(val).toISOString();
+}
 
 function hashClientIp(req: Request): string {
   const raw =
@@ -25,31 +42,43 @@ const registerUserSchema = z.object({
 
 /**
  * POST /api/users/register
- * Registers a Mode A username + RSA-OAEP public key PEM + fingerprint.
+ * Registers a Mode A username + RSA-OAEP public key PEM + fingerprint over Supabase HTTPS.
  */
 webCompatRouter.post(
   "/users/register",
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = registerUserSchema.parse(req.body);
-      const existing = await prisma.user.findUnique({ where: { username: data.username } });
+      const supabase = getSupabaseClient();
+
+      const { data: existing, error: findErr } = await supabase
+        .from("User")
+        .select("id")
+        .eq("username", data.username)
+        .maybeSingle();
+
+      if (findErr) throw new Error(findErr.message);
       if (existing) {
         res.status(409).json({ success: false, message: "Username is already registered" });
         return;
       }
 
-      const user = await prisma.user.create({
-        data: {
+      const now = new Date().toISOString();
+      const { data: user, error: insertErr } = await supabase
+        .from("User")
+        .insert({
+          id: crypto.randomUUID(),
           username: data.username,
           displayName: data.username,
           publicKey: data.publicKeyPem,
           publicKeyFingerprint: data.fingerprint || "00:00:00",
-        },
-        select: {
-          username: true,
-          publicKeyFingerprint: true,
-        },
-      });
+          createdAt: now,
+          updatedAt: now,
+        })
+        .select("username, publicKeyFingerprint")
+        .single();
+
+      if (insertErr) throw new Error(insertErr.message);
 
       res.status(201).json({
         success: true,
@@ -73,15 +102,15 @@ webCompatRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const username = String(req.params.username);
-      const user = await prisma.user.findUnique({
-        where: { username },
-        select: {
-          username: true,
-          publicKey: true,
-          publicKeyFingerprint: true,
-        },
-      });
+      const supabase = getSupabaseClient();
 
+      const { data: user, error } = await supabase
+        .from("User")
+        .select("username, publicKey, publicKeyFingerprint")
+        .eq("username", username)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message);
       if (!user) {
         res.status(404).json({ success: false, message: `User '${username}' not found` });
         return;
@@ -115,7 +144,7 @@ const webUploadSchema = z.object({
 
 /**
  * POST /api/vault/upload
- * Stores encrypted ciphertext blob on disk and metadata in Supabase PostgreSQL.
+ * Stores encrypted ciphertext blob on disk and metadata in Supabase PostgreSQL over HTTPS (port 443).
  */
 webCompatRouter.post(
   "/vault/upload",
@@ -123,19 +152,23 @@ webCompatRouter.post(
     let blobKey: string | null = null;
     try {
       const data = webUploadSchema.parse(req.body);
+      const supabase = getSupabaseClient();
+
       const cipherBuffer = Buffer.from(data.encryptedBlobB64, "base64");
       const sha256Checksum = crypto.createHash("sha256").update(cipherBuffer).digest("hex");
 
       blobKey = generateBlobKey();
-      const fullPath = path.resolve(env.BLOB_STORAGE_PATH, blobKey);
-      await fsp.writeFile(fullPath, cipherBuffer);
+      await saveBlobBuffer(blobKey, cipherBuffer);
 
+      const itemId = crypto.randomUUID();
       const ownerToken = crypto.randomBytes(16).toString("hex");
-      const expiresAt = new Date(Date.now() + data.expiryMinutes * 60 * 1000);
+      const expiresAt = new Date(Date.now() + data.expiryMinutes * 60 * 1000).toISOString();
       const effectiveMax = data.isBurnAfterReading ? 1 : data.maxDownloads;
 
-      const item = await prisma.vaultItem.create({
-        data: {
+      const { data: item, error: insertErr } = await supabase
+        .from("VaultItem")
+        .insert({
+          id: itemId,
           ownerToken,
           mode: data.mode,
           recipientUsername: data.recipientUsername ?? null,
@@ -151,16 +184,22 @@ webCompatRouter.post(
           isBurnAfterReading: data.isBurnAfterReading,
           maxDownloads: effectiveMax,
           remainingDownloads: effectiveMax,
+          burned: false,
+          isRevoked: false,
           expiresAt,
-        },
-      });
+          createdAt: new Date().toISOString(),
+        })
+        .select("id, expiresAt")
+        .single();
 
-      await prisma.accessLog.create({
-        data: {
-          itemId: item.id,
-          action: "CREATED",
-          ipHash: hashClientIp(req),
-        },
+      if (insertErr) throw new Error(insertErr.message);
+
+      await supabase.from("AccessLog").insert({
+        id: crypto.randomUUID(),
+        itemId: item.id,
+        action: "CREATED",
+        ipHash: hashClientIp(req),
+        createdAt: new Date().toISOString(),
       });
 
       res.status(201).json({
@@ -168,7 +207,7 @@ webCompatRouter.post(
         fileId: item.id,
         ownerToken,
         downloadUrl: `/v/${item.id}`,
-        expiresAt: item.expiresAt.toISOString(),
+        expiresAt: toUtcIso(item.expiresAt),
       });
     } catch (err) {
       if (blobKey) {
@@ -188,8 +227,15 @@ webCompatRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = String(req.params.id);
-      const vault = await prisma.vaultItem.findUnique({ where: { id } });
+      const supabase = getSupabaseClient();
 
+      const { data: vault, error } = await supabase
+        .from("VaultItem")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message);
       if (!vault) {
         res.status(404).json({ success: false, message: `Vault '${id}' not found` });
         return;
@@ -204,7 +250,7 @@ webCompatRouter.get(
           .json({ success: false, message: "Vault has been burned or exceeded download limit" });
         return;
       }
-      if (vault.expiresAt <= new Date()) {
+      if (parseUtcDate(vault.expiresAt) <= new Date()) {
         res.status(410).json({ success: false, message: "Vault has expired" });
         return;
       }
@@ -222,7 +268,7 @@ webCompatRouter.get(
         isBurnAfterReading: vault.isBurnAfterReading,
         maxDownloads: vault.maxDownloads,
         remainingDownloads: vault.remainingDownloads,
-        expiresAt: vault.expiresAt.toISOString(),
+        expiresAt: toUtcIso(vault.expiresAt),
       });
     } catch (err) {
       next(err);
@@ -232,15 +278,22 @@ webCompatRouter.get(
 
 /**
  * POST /api/vault/:id/download
- * Atomically decrements remainingDownloads, enforces burn-after-reading, and returns ciphertext.
+ * Optimistically decrements remainingDownloads, enforces burn-after-reading, and returns ciphertext.
  */
 webCompatRouter.post(
   "/vault/:id/download",
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = String(req.params.id);
-      const existing = await prisma.vaultItem.findUnique({ where: { id } });
+      const supabase = getSupabaseClient();
 
+      const { data: existing, error: fetchErr } = await supabase
+        .from("VaultItem")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (fetchErr) throw new Error(fetchErr.message);
       if (!existing) {
         res.status(404).json({ success: false, message: `Vault '${id}' not found` });
         return;
@@ -255,27 +308,23 @@ webCompatRouter.post(
           .json({ success: false, message: "Vault has been burned or exceeded download limit" });
         return;
       }
-      if (existing.expiresAt <= new Date()) {
+      if (parseUtcDate(existing.expiresAt) <= new Date()) {
         res.status(410).json({ success: false, message: "Vault has expired" });
         return;
       }
 
-      const updated = await prisma.$transaction(async (tx) => {
-        const resUpdate = await tx.vaultItem.updateMany({
-          where: {
-            id,
-            isRevoked: false,
-            burned: false,
-            remainingDownloads: { gt: 0 },
-          },
-          data: {
-            remainingDownloads: { decrement: 1 },
-          },
-        });
-        if (resUpdate.count === 0) return null;
-        return tx.vaultItem.findUnique({ where: { id } });
-      });
+      const { data: updated, error: updateErr } = await supabase
+        .from("VaultItem")
+        .update({ remainingDownloads: existing.remainingDownloads - 1 })
+        .eq("id", id)
+        .eq("isRevoked", false)
+        .eq("burned", false)
+        .eq("remainingDownloads", existing.remainingDownloads)
+        .gt("remainingDownloads", 0)
+        .select("*")
+        .maybeSingle();
 
+      if (updateErr) throw new Error(updateErr.message);
       if (!updated) {
         res.status(410).json({ success: false, message: "Vault download limit reached" });
         return;
@@ -286,24 +335,28 @@ webCompatRouter.post(
         return;
       }
 
-      const fullPath = path.resolve(env.BLOB_STORAGE_PATH, updated.blobKey);
-      const cipherBuffer = await fsp.readFile(fullPath);
+      const cipherBuffer = await readBlobBuffer(updated.blobKey);
       const encryptedBlobB64 = cipherBuffer.toString("base64");
 
       const ipHash = hashClientIp(req);
-      await prisma.accessLog.create({
-        data: { itemId: updated.id, action: "DOWNLOAD_SUCCESS", ipHash },
+      await supabase.from("AccessLog").insert({
+        id: crypto.randomUUID(),
+        itemId: updated.id,
+        action: "DOWNLOAD_SUCCESS",
+        ipHash,
+        createdAt: new Date().toISOString(),
       });
 
       const shouldBurn = updated.isBurnAfterReading || updated.remainingDownloads <= 0;
       if (shouldBurn) {
         await deleteBlob(updated.blobKey).catch(() => {});
-        await prisma.vaultItem.update({
-          where: { id: updated.id },
-          data: { burned: true },
-        });
-        await prisma.accessLog.create({
-          data: { itemId: updated.id, action: "BURNED", ipHash: "system" },
+        await supabase.from("VaultItem").update({ burned: true }).eq("id", updated.id);
+        await supabase.from("AccessLog").insert({
+          id: crypto.randomUUID(),
+          itemId: updated.id,
+          action: "BURNED",
+          ipHash: "system",
+          createdAt: new Date().toISOString(),
         });
       }
 
@@ -330,13 +383,15 @@ webCompatRouter.get(
     try {
       const id = String(req.params.id);
       const ownerToken = String(req.headers["x-owner-token"] || "");
-      const vault = await prisma.vaultItem.findUnique({
-        where: { id },
-        include: {
-          accessLogs: { orderBy: { createdAt: "asc" } },
-        },
-      });
+      const supabase = getSupabaseClient();
 
+      const { data: vault, error: vaultErr } = await supabase
+        .from("VaultItem")
+        .select("id, ownerToken")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (vaultErr) throw new Error(vaultErr.message);
       if (!vault) {
         res.status(404).json({ success: false, message: `Vault '${id}' not found` });
         return;
@@ -345,6 +400,14 @@ webCompatRouter.get(
         res.status(401).json({ success: false, message: "Unauthorized: invalid owner token" });
         return;
       }
+
+      const { data: logs, error: logsErr } = await supabase
+        .from("AccessLog")
+        .select("action, ipHash, createdAt")
+        .eq("itemId", id)
+        .order("createdAt", { ascending: true });
+
+      if (logsErr) throw new Error(logsErr.message);
 
       const eventMap: Record<string, string> = {
         CREATED: "CREATED",
@@ -355,8 +418,8 @@ webCompatRouter.get(
 
       res.json({
         success: true,
-        logs: vault.accessLogs.map((l) => ({
-          timestamp: l.createdAt.toISOString(),
+        logs: (logs ?? []).map((l) => ({
+          timestamp: toUtcIso(l.createdAt),
           ipHash: l.ipHash || "system",
           event: eventMap[l.action] || l.action,
         })),
@@ -377,8 +440,15 @@ webCompatRouter.post(
     try {
       const id = String(req.params.id);
       const ownerToken = String(req.headers["x-owner-token"] || "");
-      const vault = await prisma.vaultItem.findUnique({ where: { id } });
+      const supabase = getSupabaseClient();
 
+      const { data: vault, error: vaultErr } = await supabase
+        .from("VaultItem")
+        .select("id, ownerToken, blobKey")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (vaultErr) throw new Error(vaultErr.message);
       if (!vault) {
         res.status(404).json({ success: false, message: `Vault '${id}' not found` });
         return;
@@ -389,16 +459,17 @@ webCompatRouter.post(
       }
 
       await deleteBlob(vault.blobKey);
-      await prisma.vaultItem.update({
-        where: { id: vault.id },
-        data: { isRevoked: true, burned: true },
-      });
-      await prisma.accessLog.create({
-        data: {
-          itemId: vault.id,
-          action: "REVOKED",
-          ipHash: hashClientIp(req),
-        },
+      await supabase
+        .from("VaultItem")
+        .update({ isRevoked: true, burned: true })
+        .eq("id", vault.id);
+
+      await supabase.from("AccessLog").insert({
+        id: crypto.randomUUID(),
+        itemId: vault.id,
+        action: "REVOKED",
+        ipHash: hashClientIp(req),
+        createdAt: new Date().toISOString(),
       });
 
       res.json({ success: true, message: "Revoked" });
