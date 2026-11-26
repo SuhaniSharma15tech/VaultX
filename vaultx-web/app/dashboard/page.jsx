@@ -7,6 +7,7 @@ import { AuditTrail } from '../../components/dashboard/AuditTrail.jsx';
 import { HexInspector } from '../../components/dashboard/HexInspector.jsx';
 import { RevokeButton } from '../../components/dashboard/RevokeButton.jsx';
 import { TerminalWindow } from '../../components/TerminalWindow.jsx';
+import { AuthNavButton } from '../../components/AuthNavButton.jsx';
 import { getMetadata } from '../../lib/api.js';
 
 /**
@@ -121,6 +122,8 @@ export default function DashboardPage() {
               <Plus className="h-3.5 w-3.5" />
               <span>New Vault</span>
             </Link>
+
+            <AuthNavButton variant="outline" mono />
           </nav>
         </div>
       </header>

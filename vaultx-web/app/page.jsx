@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Shield, Key, LayoutDashboard } from 'lucide-react';
 import { UploadCard } from '../components/UploadCard.jsx';
 import { KeySetupModal } from '../components/KeySetupModal.jsx';
+import { AuthNavButton } from '../components/AuthNavButton.jsx';
 
 /**
  * HomePage (/)
@@ -57,6 +58,8 @@ export default function HomePage() {
               <LayoutDashboard className="h-3.5 w-3.5 text-[#A1A1AA]" />
               <span>Dashboard</span>
             </Link>
+
+            <AuthNavButton variant="primary" />
           </nav>
         </div>
       </header>
