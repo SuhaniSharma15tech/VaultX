@@ -44,6 +44,18 @@ export default function SignUpPage() {
   // ── async state ──
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
+  const [redirectNotice, setRedirectNotice] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const prefillEmail = params.get('email');
+      if (prefillEmail) {
+        setEmail(prefillEmail);
+        setRedirectNotice(true);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -155,6 +167,12 @@ export default function SignUpPage() {
         {/* ── Registration Card ── */}
         <TerminalWindow className="w-full">
           <div className="p-5 sm:p-6">
+            {redirectNotice && (
+              <div className="mb-4 flex items-start gap-2 rounded-lg border border-[#10B981]/40 bg-[#10B981]/10 p-3 text-xs text-emerald-300">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
+                <span>No account found for that email. Create your VaultX account below.</span>
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               {/* ── Name ── */}
               <div>

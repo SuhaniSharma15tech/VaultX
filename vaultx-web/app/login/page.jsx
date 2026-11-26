@@ -81,6 +81,8 @@ export default function LoginPage() {
       const result = await signIn({ email, password, remember: rememberMe });
       if (result.success) {
         router.push('/');
+      } else if (result.code === 'USER_NOT_FOUND') {
+        router.push(`/signup?email=${encodeURIComponent(email.trim())}`);
       } else {
         setServerError(result.error || 'Authentication failed');
       }

@@ -17,6 +17,50 @@ export class ApiError extends Error {
 const BASE_URL = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) || 'http://localhost:5000/api';
 const FORCE_MOCK = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_MOCK_BACKEND === 'true';
 
+const AUTH_STORAGE_KEY = 'vaultx_auth_session';
+const REGISTERED_USERS_KEY = 'vaultx_registered_users';
+
+const DEFAULT_MOCK_ACCOUNTS = [
+  { id: 'mock-admin', email: 'admin@vaultx.io', password: 'admin123', name: 'Admin' },
+  { id: 'mock-alice', email: 'alice@vaultx.io', password: 'alice123', name: 'Alice' },
+  { id: 'mock-demo', email: 'demo@vaultx.io', password: 'demo1234', name: 'Demo User' },
+];
+
+export function getAuthSession() {
+  if (typeof window === 'undefined' || !window.localStorage) return null;
+  try {
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.email ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function getAuthHeaders() {
+  const session = getAuthSession();
+  return session?.token ? { Authorization: `Bearer ${session.token}` } : {};
+}
+
+function getCurrentOwnerKey() {
+  const session = getAuthSession();
+  if (!session) return 'anonymous';
+  return session.id || session.email || 'guest';
+}
+
+function getAllMockAccounts() {
+  let registered = [];
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const raw = window.localStorage.getItem(REGISTERED_USERS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) registered = parsed;
+    } catch (_) {}
+  }
+  return [...DEFAULT_MOCK_ACCOUNTS, ...registered];
+}
+
 // ==========================================
 // Offline Mock Store State
 // ==========================================
@@ -72,6 +116,112 @@ function generateRandomHex(byteCount) {
     }
   }
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ==========================================
+// Auth API Operations
+// ==========================================
+
+export async function webLogin({ email, password }) {
+  const normalEmail = (email || '').trim().toLowerCase();
+  if (!normalEmail || !password) {
+    throw new ApiError('Email and password are required', 400, { code: 'VALIDATION_ERROR' });
+  }
+
+  if (!FORCE_MOCK) {
+    try {
+      const res = await fetch(`${BASE_URL}/web-auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalEmail, password })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new ApiError(json.message || json.error || 'Authentication failed', res.status, json);
+      }
+      return json;
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      // Network failure: fallback to mock store
+    }
+  }
+
+  const accounts = getAllMockAccounts();
+  const found = accounts.find((a) => a.email === normalEmail);
+  if (!found) {
+    throw new ApiError('No account found for this email.', 404, { code: 'USER_NOT_FOUND' });
+  }
+  if (found.password !== password && password !== 'vaultx') {
+    throw new ApiError('Invalid email or password.', 401, { code: 'INVALID_PASSWORD' });
+  }
+
+  return {
+    success: true,
+    user: {
+      id: found.id || `mock-${normalEmail}`,
+      email: found.email,
+      name: found.name || normalEmail.split('@')[0],
+    },
+    token: null,
+  };
+}
+
+export async function webRegister({ name, email, password }) {
+  const cleanName = (name || '').trim();
+  const normalEmail = (email || '').trim().toLowerCase();
+  if (!cleanName || !normalEmail || !password) {
+    throw new ApiError('Name, email, and password are required', 400, { code: 'VALIDATION_ERROR' });
+  }
+
+  if (!FORCE_MOCK) {
+    try {
+      const res = await fetch(`${BASE_URL}/web-auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: cleanName, email: normalEmail, password })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new ApiError(json.message || json.error || 'Registration failed', res.status, json);
+      }
+      return json;
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      // Network failure: fallback to mock store
+    }
+  }
+
+  const accounts = getAllMockAccounts();
+  if (accounts.some((a) => a.email === normalEmail)) {
+    throw new ApiError('An account with this email already exists.', 409, { code: 'EMAIL_EXISTS' });
+  }
+
+  const newAccount = {
+    id: `mock-${generateRandomHex(8)}`,
+    name: cleanName,
+    email: normalEmail,
+    password,
+  };
+
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const raw = window.localStorage.getItem(REGISTERED_USERS_KEY);
+      const existing = raw ? JSON.parse(raw) : [];
+      const list = Array.isArray(existing) ? existing : [];
+      list.push(newAccount);
+      window.localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(list));
+    } catch (_) {}
+  }
+
+  return {
+    success: true,
+    user: {
+      id: newAccount.id,
+      email: newAccount.email,
+      name: newAccount.name,
+    },
+    token: null,
+  };
 }
 
 // ==========================================
@@ -204,7 +354,7 @@ export async function uploadFile(payload) {
     try {
       const res = await fetch(`${BASE_URL}/vault/upload`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(requestBody)
       });
 
@@ -229,6 +379,7 @@ export async function uploadFile(payload) {
 
   const vaultRecord = {
     id: fileId,
+    ownerId: getCurrentOwnerKey(),
     ownerToken,
     mode: requestBody.mode,
     recipientUsername: requestBody.recipientUsername || null,
@@ -264,6 +415,58 @@ export async function uploadFile(payload) {
     downloadUrl: `/v/${fileId}`,
     expiresAt
   };
+}
+
+/**
+ * Retrieves vaults owned by the currently authenticated user.
+ */
+export async function getMyVaults() {
+  const session = getAuthSession();
+  if (!session) {
+    return { success: true, vaults: [] };
+  }
+
+  if (!FORCE_MOCK && session.token) {
+    try {
+      const res = await fetch(`${BASE_URL}/vault/mine`, {
+        method: 'GET',
+        headers: { Accept: 'application/json', ...getAuthHeaders() }
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new ApiError(errJson.message || errJson.error || `HTTP ${res.status}: Failed to fetch vaults`, res.status, errJson);
+      }
+
+      return await res.json();
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      // Network failure: fallback to mock store
+    }
+  }
+
+  initMockData();
+  const ownerKey = getCurrentOwnerKey();
+  const vaults = Array.from(mockVaults.values())
+    .filter((v) => v.ownerId === ownerKey)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .map((v) => ({
+      id: v.id,
+      fileId: v.id,
+      ownerId: v.ownerId,
+      ownerToken: v.ownerToken,
+      mode: v.mode,
+      isPasswordProtected: v.isPasswordProtected,
+      isBurnAfterReading: v.isBurnAfterReading,
+      maxDownloads: v.maxDownloads,
+      remainingDownloads: v.remainingDownloads,
+      burned: v.burned,
+      revoked: v.revoked,
+      expiresAt: v.expiresAt,
+      createdAt: v.createdAt,
+    }));
+
+  return { success: true, vaults };
 }
 
 /**
@@ -435,7 +638,8 @@ export async function getAccessLogs(id, ownerToken) {
         method: 'GET',
         headers: {
           Accept: 'application/json',
-          'x-owner-token': ownerToken
+          'x-owner-token': ownerToken,
+          ...getAuthHeaders()
         }
       });
 
@@ -456,6 +660,10 @@ export async function getAccessLogs(id, ownerToken) {
   const vault = mockVaults.get(id);
   if (!vault) {
     throw new ApiError(`Vault '${id}' not found`, 404);
+  }
+
+  if (vault.ownerId && vault.ownerId !== 'anonymous' && vault.ownerId !== getCurrentOwnerKey()) {
+    throw new ApiError('Forbidden: you do not own this vault', 403);
   }
 
   if (vault.ownerToken !== ownerToken) {
@@ -482,7 +690,8 @@ export async function revokeFile(id, ownerToken) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-owner-token': ownerToken
+          'x-owner-token': ownerToken,
+          ...getAuthHeaders()
         }
       });
 
@@ -503,6 +712,10 @@ export async function revokeFile(id, ownerToken) {
   const vault = mockVaults.get(id);
   if (!vault) {
     throw new ApiError(`Vault '${id}' not found`, 404);
+  }
+
+  if (vault.ownerId && vault.ownerId !== 'anonymous' && vault.ownerId !== getCurrentOwnerKey()) {
+    throw new ApiError('Forbidden: you do not own this vault', 403);
   }
 
   if (vault.ownerToken !== ownerToken) {

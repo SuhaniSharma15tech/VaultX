@@ -1,6 +1,10 @@
 import crypto from "crypto";
 import { Router, Request, Response, NextFunction } from "express";
+import argon2 from "argon2";
+import jwt from "jsonwebtoken";
 import { z } from "zod";
+import { env } from "../config/env";
+import { optionalAuth, requireAuth } from "../middleware/auth.middleware";
 import { getSupabaseClient } from "../lib/supabase";
 import {
   blobExists,
@@ -32,6 +36,31 @@ function hashClientIp(req: Request): string {
     req.socket?.remoteAddress ||
     "unknown";
   return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 16);
+}
+
+/**
+ * Enforces vault ownership on protected sender actions (logs, revoke).
+ * Returns null if authorized, or { status, message } if denied.
+ */
+function verifyVaultOwnership(
+  req: Request,
+  vault: { ownerId?: string | null; ownerToken?: string | null },
+  ownerToken: string
+): { status: number; message: string } | null {
+  if (vault.ownerId) {
+    if (!req.user) {
+      return { status: 401, message: "Authentication required" };
+    }
+    if (vault.ownerId !== req.user.userId) {
+      return { status: 403, message: "Forbidden: you do not own this vault" };
+    }
+  } else if (!ownerToken || vault.ownerToken !== ownerToken) {
+    return { status: 401, message: "Unauthorized: invalid owner token" };
+  }
+  if (ownerToken && vault.ownerToken && vault.ownerToken !== ownerToken) {
+    return { status: 401, message: "Unauthorized: invalid owner token" };
+  }
+  return null;
 }
 
 const registerUserSchema = z.object({
@@ -128,6 +157,145 @@ webCompatRouter.get(
   }
 );
 
+const webRegisterSchema = z.object({
+  name: z.string().min(1).max(80),
+  email: z.string().email(),
+  password: z.string().min(6).max(128),
+});
+
+const webLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+/**
+ * POST /api/web-auth/register
+ * Registers a user in Supabase over HTTPS and returns a signed JWT.
+ */
+webCompatRouter.post(
+  "/web-auth/register",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = webRegisterSchema.parse(req.body);
+      const email = data.email.trim().toLowerCase();
+      const supabase = getSupabaseClient();
+
+      const { data: existing, error: findErr } = await supabase
+        .from("User")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (findErr) throw new Error(findErr.message);
+      if (existing) {
+        res.status(409).json({
+          success: false,
+          code: "EMAIL_EXISTS",
+          message: "An account with this email already exists.",
+        });
+        return;
+      }
+
+      const passwordHash = await argon2.hash(data.password, { type: argon2.argon2id });
+      const now = new Date().toISOString();
+      const id = crypto.randomUUID();
+
+      const { data: user, error: insertErr } = await supabase
+        .from("User")
+        .insert({
+          id,
+          email,
+          displayName: data.name.trim(),
+          passwordHash,
+          publicKey: "PENDING_KEY_SETUP",
+          publicKeyFingerprint: crypto.randomBytes(16).toString("hex"),
+          createdAt: now,
+          updatedAt: now,
+        })
+        .select("id, email, displayName")
+        .single();
+
+      if (insertErr) throw new Error(insertErr.message);
+
+      const token = jwt.sign(
+        { userId: user.id, email: user.email ?? email },
+        env.JWT_SECRET,
+        { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"] }
+      );
+
+      res.status(201).json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.displayName || email.split("@")[0],
+        },
+        token,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /api/web-auth/login
+ * Authenticates a user in Supabase over HTTPS. Returns 404 USER_NOT_FOUND if account doesn't exist.
+ */
+webCompatRouter.post(
+  "/web-auth/login",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = webLoginSchema.parse(req.body);
+      const email = data.email.trim().toLowerCase();
+      const supabase = getSupabaseClient();
+
+      const { data: user, error } = await supabase
+        .from("User")
+        .select("id, email, displayName, passwordHash")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (error) throw new Error(error.message);
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          code: "USER_NOT_FOUND",
+          message: "No account found for this email.",
+        });
+        return;
+      }
+
+      if (!user.passwordHash || !(await argon2.verify(user.passwordHash, data.password))) {
+        res.status(401).json({
+          success: false,
+          code: "INVALID_PASSWORD",
+          message: "Invalid password.",
+        });
+        return;
+      }
+
+      const token = jwt.sign(
+        { userId: user.id, email: user.email ?? email },
+        env.JWT_SECRET,
+        { expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"] }
+      );
+
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.displayName || email.split("@")[0],
+        },
+        token,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 const webUploadSchema = z.object({
   encryptedBlobB64: z.string().min(1),
   ivB64: z.string().min(1),
@@ -148,6 +316,7 @@ const webUploadSchema = z.object({
  */
 webCompatRouter.post(
   "/vault/upload",
+  optionalAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     let blobKey: string | null = null;
     try {
@@ -169,6 +338,7 @@ webCompatRouter.post(
         .from("VaultItem")
         .insert({
           id: itemId,
+          ownerId: req.user?.userId ?? null,
           ownerToken,
           mode: data.mode,
           recipientUsername: data.recipientUsername ?? null,
@@ -213,6 +383,52 @@ webCompatRouter.post(
       if (blobKey) {
         await deleteBlob(blobKey).catch(() => {});
       }
+      next(err);
+    }
+  }
+);
+
+/**
+ * GET /api/vault/mine
+ * Returns only vault items owned by the currently authenticated user.
+ */
+webCompatRouter.get(
+  "/vault/mine",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const supabase = getSupabaseClient();
+      const { data: items, error } = await supabase
+        .from("VaultItem")
+        .select(
+          "id, ownerId, ownerToken, mode, itemType, sizeBytes, isPasswordProtected, isBurnAfterReading, maxDownloads, remainingDownloads, burned, isRevoked, expiresAt, createdAt"
+        )
+        .eq("ownerId", req.user!.userId)
+        .order("createdAt", { ascending: false });
+
+      if (error) throw new Error(error.message);
+
+      res.json({
+        success: true,
+        vaults: (items ?? []).map((v) => ({
+          id: v.id,
+          fileId: v.id,
+          ownerId: v.ownerId,
+          ownerToken: v.ownerToken,
+          mode: v.mode,
+          itemType: v.itemType,
+          sizeBytes: v.sizeBytes,
+          isPasswordProtected: v.isPasswordProtected,
+          isBurnAfterReading: v.isBurnAfterReading,
+          maxDownloads: v.maxDownloads,
+          remainingDownloads: v.remainingDownloads,
+          burned: v.burned,
+          revoked: v.isRevoked,
+          expiresAt: toUtcIso(v.expiresAt),
+          createdAt: toUtcIso(v.createdAt),
+        })),
+      });
+    } catch (err) {
       next(err);
     }
   }
@@ -379,6 +595,7 @@ webCompatRouter.post(
  */
 webCompatRouter.get(
   "/vault/:id/logs",
+  optionalAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = String(req.params.id);
@@ -387,7 +604,7 @@ webCompatRouter.get(
 
       const { data: vault, error: vaultErr } = await supabase
         .from("VaultItem")
-        .select("id, ownerToken")
+        .select("id, ownerId, ownerToken")
         .eq("id", id)
         .maybeSingle();
 
@@ -396,8 +613,9 @@ webCompatRouter.get(
         res.status(404).json({ success: false, message: `Vault '${id}' not found` });
         return;
       }
-      if (!ownerToken || vault.ownerToken !== ownerToken) {
-        res.status(401).json({ success: false, message: "Unauthorized: invalid owner token" });
+      const authErr = verifyVaultOwnership(req, vault, ownerToken);
+      if (authErr) {
+        res.status(authErr.status).json({ success: false, message: authErr.message });
         return;
       }
 
@@ -436,6 +654,7 @@ webCompatRouter.get(
  */
 webCompatRouter.post(
   "/vault/:id/revoke",
+  optionalAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = String(req.params.id);
@@ -444,7 +663,7 @@ webCompatRouter.post(
 
       const { data: vault, error: vaultErr } = await supabase
         .from("VaultItem")
-        .select("id, ownerToken, blobKey")
+        .select("id, ownerId, ownerToken, blobKey")
         .eq("id", id)
         .maybeSingle();
 
@@ -453,8 +672,9 @@ webCompatRouter.post(
         res.status(404).json({ success: false, message: `Vault '${id}' not found` });
         return;
       }
-      if (!ownerToken || vault.ownerToken !== ownerToken) {
-        res.status(401).json({ success: false, message: "Unauthorized: invalid owner token" });
+      const authErr = verifyVaultOwnership(req, vault, ownerToken);
+      if (authErr) {
+        res.status(authErr.status).json({ success: false, message: authErr.message });
         return;
       }
 

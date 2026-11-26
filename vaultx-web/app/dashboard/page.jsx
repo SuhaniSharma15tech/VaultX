@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, ExternalLink, RefreshCw, Inbox, Lock, LogIn } from 'lucide-react';
+import { Plus, ExternalLink, RefreshCw, Inbox, Lock, LogIn, AlertCircle } from 'lucide-react';
 import { AuditTrail } from '../../components/dashboard/AuditTrail.jsx';
 import { HexInspector } from '../../components/dashboard/HexInspector.jsx';
 import { RevokeButton } from '../../components/dashboard/RevokeButton.jsx';
@@ -11,8 +11,8 @@ import { TerminalWindow } from '../../components/TerminalWindow.jsx';
 import { ThemeToggle } from '../../components/ThemeToggle.jsx';
 import { AuthNavButton } from '../../components/AuthNavButton.jsx';
 import { VaultXLogo } from '../../components/VaultXLogo.jsx';
-import { useAuth } from '../../lib/authContext.js';
-import { getMetadata } from '../../lib/api.js';
+import { useAuth, getUserVaultStorageKey } from '../../lib/authContext.js';
+import { getMetadata, getMyVaults } from '../../lib/api.js';
 
 /**
  * DashboardPage (/dashboard)
@@ -27,32 +27,88 @@ export default function DashboardPage() {
   const [inspectedMetaB64, setInspectedMetaB64] = useState('');
   const [inspectedIv, setInspectedIv] = useState('');
   const [inspectStatus, setInspectStatus] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState('');
 
-  // Redirect unauthenticated senders to login
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
-    }
-  }, [isLoading, user, router]);
+  const activeUserKey = user ? (user.id || user.email || 'guest') : null;
 
-  const loadVaults = useCallback(() => {
-    if (typeof window === 'undefined' || !window.localStorage) return;
-    try {
-      const raw = window.localStorage.getItem('vaultx_sent_vaults');
-      const list = raw ? JSON.parse(raw) : [];
-      const normalized = Array.isArray(list) ? list : [];
-      setSentVaults(normalized);
-      if (normalized.length > 0 && !selectedId) {
-        setSelectedId(normalized[0].fileId || normalized[0].id);
-      }
-    } catch (_) {
+  const loadVaults = useCallback(async () => {
+    if (!user) {
       setSentVaults([]);
+      setSelectedId(null);
+      return;
     }
-  }, [selectedId]);
 
+    setIsRefreshing(true);
+    setRefreshError('');
+
+    try {
+      const res = await getMyVaults();
+      const apiVaults = Array.isArray(res?.vaults) ? res.vaults : [];
+
+      let localList = [];
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          const storageKey = getUserVaultStorageKey(user);
+          const raw = window.localStorage.getItem(storageKey);
+          const parsed = raw ? JSON.parse(raw) : [];
+          if (Array.isArray(parsed)) {
+            localList = parsed.filter(
+              (item) => !item.ownerId || item.ownerId === activeUserKey
+            );
+          }
+        } catch (_) {}
+      }
+
+      const localById = new Map(
+        localList.map((item) => [item.fileId || item.id, item])
+      );
+
+      let merged;
+      if (apiVaults.length > 0) {
+        merged = apiVaults.map((v) => {
+          const localMatch = localById.get(v.fileId || v.id);
+          return {
+            ...v,
+            filename: localMatch?.filename || v.filename || `Vault ${(v.fileId || v.id).slice(0, 8)}`,
+          };
+        });
+      } else {
+        merged = localList;
+      }
+
+      setSentVaults(merged);
+      setSelectedId((prev) => {
+        if (prev && merged.some((v) => (v.fileId || v.id) === prev)) return prev;
+        return merged.length > 0 ? (merged[0].fileId || merged[0].id) : null;
+      });
+    } catch (err) {
+      setRefreshError(err.message || 'Failed to refresh vaults. Please try again.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [user, activeUserKey]);
+
+  // Redirect unauthenticated senders to login and clear stale state on account switch/logout
   useEffect(() => {
+    if (isLoading) return;
+    if (!user) {
+      setSentVaults([]);
+      setSelectedId(null);
+      setInspectedMetaB64('');
+      setInspectedIv('');
+      setInspectStatus('');
+      setRefreshError('');
+      router.push('/login');
+      return;
+    }
+    setSentVaults([]);
+    setSelectedId(null);
+    setInspectedMetaB64('');
+    setInspectedIv('');
+    setInspectStatus('');
     loadVaults();
-  }, [loadVaults]);
+  }, [isLoading, user, activeUserKey, router, loadVaults]);
 
   const selectedVault =
     sentVaults.find((v) => (v.fileId || v.id) === selectedId) || sentVaults[0] || null;
@@ -94,9 +150,9 @@ export default function DashboardPage() {
       const updated = prev.map((item) =>
         (item.fileId || item.id) === fileId ? { ...item, revoked: true } : item
       );
-      if (typeof window !== 'undefined' && window.localStorage) {
+      if (typeof window !== 'undefined' && window.localStorage && user) {
         try {
-          window.localStorage.setItem('vaultx_sent_vaults', JSON.stringify(updated));
+          window.localStorage.setItem(getUserVaultStorageKey(user), JSON.stringify(updated));
         } catch (_) {}
       }
       return updated;
@@ -120,10 +176,11 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={loadVaults}
-              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 font-mono text-xs font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-white/10"
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 font-mono text-xs font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-white/10"
             >
-              <RefreshCw className="h-3.5 w-3.5 text-zinc-500 dark:text-[#A1A1AA]" />
-              <span>Refresh</span>
+              <RefreshCw className={`h-3.5 w-3.5 text-zinc-500 dark:text-[#A1A1AA] ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
             </button>
 
             <Link
@@ -147,6 +204,13 @@ export default function DashboardPage() {
             Locally tracked uploads from this browser. Inspect access logs, raw ciphertext headers, or trigger instant kill-switch revocation.
           </p>
         </div>
+
+        {refreshError && (
+          <div className="mb-5 flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{refreshError}</span>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex min-h-[300px] items-center justify-center rounded-xl border border-zinc-200 bg-white/80 p-8 shadow-sm dark:border-white/10 dark:bg-[#07080B]">

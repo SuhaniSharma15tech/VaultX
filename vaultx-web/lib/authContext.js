@@ -1,41 +1,36 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { webLogin, webRegister } from './api.js';
 
 /**
- * VaultX Mock Auth Context
- * Provides lightweight demo authentication state across the app.
- * Persists session to localStorage so it survives page reloads.
+ * VaultX Auth Context
+ * Connects to backend auth endpoints with offline mock fallback.
+ * Persists session to localStorage and isolates per-user cached state.
  */
 
 const STORAGE_KEY = 'vaultx_auth_session';
-const USERS_STORAGE_KEY = 'vaultx_registered_users';
 
-// Pre-seeded demo accounts for mock login
-const MOCK_ACCOUNTS = [
-  { email: 'admin@vaultx.io', password: 'admin123', name: 'Admin' },
-  { email: 'alice@vaultx.io', password: 'alice123', name: 'Alice' },
-  { email: 'demo@vaultx.io', password: 'demo1234', name: 'Demo User' },
-];
+export function getUserVaultStorageKey(session) {
+  if (!session) return 'vaultx_sent_vaults';
+  const ownerKey = session.id || session.email || 'guest';
+  return `vaultx_sent_vaults_${ownerKey}`;
+}
 
-function getRegisteredUsers() {
-  if (typeof window === 'undefined' || !window.localStorage) return [];
+function clearLegacyUnscopedCaches() {
+  if (typeof window === 'undefined' || !window.localStorage) return;
   try {
-    const raw = window.localStorage.getItem(USERS_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (_) {
-    return [];
-  }
+    window.localStorage.removeItem('vaultx_sent_vaults');
+    window.localStorage.removeItem('vaultx_history');
+  } catch (_) {}
 }
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true); // initial hydration
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Hydrate from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
@@ -51,92 +46,88 @@ export function AuthProvider({ children }) {
     setIsLoading(false);
   }, []);
 
-  /**
-   * Mock sign-in.
-   * Accepts any email/password matching MOCK_ACCOUNTS, or any email with
-   * password "vaultx" as a universal demo backdoor.
-   * Returns { success, user? , error? }
-   */
   const signIn = useCallback(async ({ email, password, remember = false }) => {
-    // Simulate network latency
-    await new Promise((r) => setTimeout(r, 900 + Math.random() * 600));
+    try {
+      const res = await webLogin({ email, password });
+      const session = {
+        id: res.user.id,
+        email: res.user.email,
+        name: res.user.name,
+        token: res.token || null,
+        loginAt: new Date().toISOString(),
+        remember,
+      };
 
-    const normalEmail = email.trim().toLowerCase();
+      clearLegacyUnscopedCaches();
+      setUser(session);
 
-    const allAccounts = [...MOCK_ACCOUNTS, ...getRegisteredUsers()];
-    const matched = allAccounts.find(
-      (a) => a.email === normalEmail && a.password === password
-    );
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+        } catch (_) {}
+      }
 
-    // Universal demo password
-    const isUniversal = password === 'vaultx';
-
-    if (!matched && !isUniversal) {
-      return { success: false, error: 'Invalid email or password. Try demo@vaultx.io / demo1234' };
+      return { success: true, user: session };
+    } catch (err) {
+      const code = err?.data?.code || (err?.status === 404 ? 'USER_NOT_FOUND' : 'AUTH_ERROR');
+      return {
+        success: false,
+        code,
+        error: err.message || 'Authentication failed',
+      };
     }
-
-    const session = {
-      email: normalEmail,
-      name: matched?.name || normalEmail.split('@')[0],
-      loginAt: new Date().toISOString(),
-      remember,
-    };
-
-    setUser(session);
-
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-      } catch (_) {}
-    }
-
-    return { success: true, user: session };
   }, []);
 
-  /**
-   * Mock sign-up.
-   * Registers a new local demo account and signs the user in immediately.
-   */
   const signUp = useCallback(async ({ name, email, password }) => {
-    await new Promise((r) => setTimeout(r, 800 + Math.random() * 400));
+    try {
+      const res = await webRegister({ name, email, password });
+      const session = {
+        id: res.user.id,
+        email: res.user.email,
+        name: res.user.name,
+        token: res.token || null,
+        loginAt: new Date().toISOString(),
+        remember: true,
+      };
 
-    const cleanName = name.trim();
-    const normalEmail = email.trim().toLowerCase();
-    const existing = [...MOCK_ACCOUNTS, ...getRegisteredUsers()].find(
-      (a) => a.email === normalEmail
-    );
+      clearLegacyUnscopedCaches();
+      setUser(session);
 
-    if (existing) {
-      return { success: false, error: 'An account with this email already exists.' };
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+        } catch (_) {}
+      }
+
+      return { success: true, user: session };
+    } catch (err) {
+      return {
+        success: false,
+        code: err?.data?.code || 'REGISTER_ERROR',
+        error: err.message || 'Registration failed',
+      };
     }
+  }, []);
 
-    const newAccount = { name: cleanName, email: normalEmail, password };
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        const updatedUsers = [...getRegisteredUsers(), newAccount];
-        window.localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-      } catch (_) {}
-    }
-
+  const continueAsGuest = useCallback(() => {
+    clearLegacyUnscopedCaches();
     const session = {
-      email: normalEmail,
-      name: cleanName,
+      id: 'guest',
+      email: 'guest',
+      name: 'Guest',
+      isGuest: true,
       loginAt: new Date().toISOString(),
-      remember: true,
     };
-
     setUser(session);
-
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
       } catch (_) {}
     }
-
-    return { success: true, user: session };
   }, []);
 
   const signOut = useCallback(() => {
+    clearLegacyUnscopedCaches();
     setUser(null);
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
@@ -146,7 +137,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, continueAsGuest }}>
       {children}
     </AuthContext.Provider>
   );
