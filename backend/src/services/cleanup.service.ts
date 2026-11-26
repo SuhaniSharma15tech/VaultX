@@ -5,57 +5,79 @@ import { getSupabaseClient } from "../lib/supabase";
 import { deleteBlob } from "./storage.service";
 
 /**
- * Purges expired or revoked vault items and deletes their encrypted blobs from disk.
+ * Purges encrypted blobs for expired or revoked vault items immediately,
+ * while keeping tombstone + audit logs for 24h so the sender dashboard can still inspect them.
  */
 export async function purgeExpiredItems(): Promise<number> {
-  const nowIso = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const hardDeleteCutoffIso = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
   if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
     const supabase = getSupabaseClient();
-    const { data: expired, error } = await supabase
+
+    // 1. Delete blobs from Supabase Storage for newly expired/revoked items (keep audit logs)
+    const { data: toScrub, error } = await supabase
       .from("VaultItem")
       .select("id, blobKey")
+      .not("blobKey", "is", null)
       .or(`expiresAt.lte.${nowIso},isRevoked.eq.true`);
 
     if (error) {
       throw new Error(`Supabase cleanup query failed: ${error.message}`);
     }
-    if (!expired || expired.length === 0) return 0;
 
-    await Promise.all(expired.map((item) => deleteBlob(item.blobKey)));
-
-    const { error: delError } = await supabase
-      .from("VaultItem")
-      .delete()
-      .in(
-        "id",
-        expired.map((i) => i.id)
-      );
-
-    if (delError) {
-      throw new Error(`Supabase cleanup delete failed: ${delError.message}`);
+    if (toScrub && toScrub.length > 0) {
+      await Promise.all(toScrub.map((item) => deleteBlob(item.blobKey)));
+      await supabase
+        .from("VaultItem")
+        .update({ blobKey: null, burned: true })
+        .in(
+          "id",
+          toScrub.map((i) => i.id)
+        );
     }
 
-    return expired.length;
+    // 2. Hard-delete DB rows only 24h after expiry
+    const { data: oldItems } = await supabase
+      .from("VaultItem")
+      .select("id")
+      .lte("expiresAt", hardDeleteCutoffIso);
+
+    if (oldItems && oldItems.length > 0) {
+      await supabase
+        .from("VaultItem")
+        .delete()
+        .in(
+          "id",
+          oldItems.map((i) => i.id)
+        );
+    }
+
+    return toScrub?.length ?? 0;
   }
 
-  const now = new Date();
-  const expired = await prisma.vaultItem.findMany({
+  const toScrub = await prisma.vaultItem.findMany({
     where: {
+      blobKey: { not: null },
       OR: [{ expiresAt: { lte: now } }, { isRevoked: true }],
     },
     select: { id: true, blobKey: true },
   });
 
-  if (expired.length === 0) return 0;
-
-  await Promise.all(expired.map((item) => deleteBlob(item.blobKey)));
+  if (toScrub.length > 0) {
+    await Promise.all(toScrub.map((item) => deleteBlob(item.blobKey)));
+    await prisma.vaultItem.updateMany({
+      where: { id: { in: toScrub.map((i) => i.id) } },
+      data: { blobKey: null, burned: true },
+    });
+  }
 
   await prisma.vaultItem.deleteMany({
-    where: { id: { in: expired.map((i) => i.id) } },
+    where: { expiresAt: { lte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } },
   });
 
-  return expired.length;
+  return toScrub.length;
 }
 
 /**
@@ -66,7 +88,7 @@ export function startCleanupScheduler(): void {
     try {
       const count = await purgeExpiredItems();
       if (count > 0) {
-        console.log(`[cleanup] Purged ${count} expired/revoked vault item(s)`);
+        console.log(`[cleanup] Scrubbed ${count} expired/revoked vault blob(s)`);
       }
     } catch (err) {
       console.error("[cleanup] Failed to purge expired items:", err);

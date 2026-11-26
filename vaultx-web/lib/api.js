@@ -524,3 +524,71 @@ export async function revokeFile(id, ownerToken) {
     message: 'Revoked'
   };
 }
+
+/**
+ * Registers a new user account in the backend database.
+ */
+export async function registerAuth({
+  email,
+  displayName,
+  password,
+  publicKey,
+  publicKeyFingerprint,
+  encryptedPrivateKey,
+}) {
+  if (!email || !password || !publicKey || !publicKeyFingerprint) {
+    throw new ApiError('Email, password, publicKey, and publicKeyFingerprint are required', 400);
+  }
+
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        displayName,
+        password,
+        publicKey,
+        publicKeyFingerprint,
+        ...(encryptedPrivateKey ? { encryptedPrivateKey } : {}),
+      }),
+    });
+  } catch (err) {
+    throw new ApiError('Unable to reach VaultX backend server', 503);
+  }
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ApiError(json.error || json.message || `HTTP ${res.status}: Registration failed`, res.status, json);
+  }
+
+  return json;
+}
+
+/**
+ * Authenticates an existing user against the backend database.
+ */
+export async function loginAuth({ email, password }) {
+  if (!email || !password) {
+    throw new ApiError('Email and password are required', 400);
+  }
+
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch (err) {
+    throw new ApiError('Unable to reach VaultX backend server', 503);
+  }
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ApiError(json.error || json.message || `HTTP ${res.status}: Authentication failed`, res.status, json);
+  }
+
+  return json;
+}

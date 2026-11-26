@@ -1,21 +1,33 @@
+import crypto from "crypto";
 import { EventEmitter } from "events";
-import { AccessAction } from "@prisma/client";
 import { Request } from "express";
-import { prisma } from "../lib/prisma";
+import { db, hashIp, nowIso } from "../lib/db";
 
 export const auditEvents = new EventEmitter();
 auditEvents.setMaxListeners(100);
 
+export type AccessActionName =
+  | "CREATED"
+  | "VIEW_META"
+  | "DOWNLOAD_SUCCESS"
+  | "DENIED_PASSWORD"
+  | "DENIED_EXPIRED"
+  | "DENIED_REVOKED"
+  | "DENIED_LIMIT"
+  | "BURNED"
+  | "REVOKED";
+
 interface LogAccessParams {
   itemId: string;
-  action: AccessAction;
+  action: AccessActionName;
   shareLinkId?: string;
   accessorUserId?: string;
   req?: Request;
 }
 
 /**
- * Persists an access audit event and broadcasts it to any live SSE listeners for the item.
+ * Persists an access audit event (IP is stored only as a short hash)
+ * and broadcasts it to any live SSE listeners for the item.
  */
 export async function logAccess({
   itemId,
@@ -24,23 +36,23 @@ export async function logAccess({
   accessorUserId,
   req,
 }: LogAccessParams) {
-  const ipAddress =
-    (req?.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-    req?.socket?.remoteAddress ||
-    null;
-  const userAgent = req?.headers["user-agent"] || null;
+  const row = {
+    id: crypto.randomUUID(),
+    itemId,
+    action,
+    shareLinkId: shareLinkId ?? null,
+    accessorUserId: accessorUserId ?? null,
+    ipHash: hashIp(req),
+    userAgent: (req?.headers["user-agent"] as string) ?? null,
+    createdAt: nowIso(),
+  };
 
-  const entry = await prisma.accessLog.create({
-    data: {
-      itemId,
-      action,
-      shareLinkId: shareLinkId ?? null,
-      accessorUserId: accessorUserId ?? null,
-      ipAddress,
-      userAgent,
-    },
-  });
+  const { error } = await db().from("AccessLog").insert(row);
+  if (error) {
+    console.error("[audit] Failed to write access log:", error.message);
+    return row;
+  }
 
-  auditEvents.emit(`item:${itemId}`, entry);
-  return entry;
+  auditEvents.emit(`item:${itemId}`, row);
+  return row;
 }

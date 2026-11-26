@@ -65,7 +65,7 @@ export default function SignUpPage() {
 
   const validatePassword = (value) => {
     if (!value) return 'Password is required';
-    if (value.length < 6) return 'Password must be at least 6 characters';
+    if (value.length < 8) return 'Password must be at least 8 characters';
     return '';
   };
 
@@ -256,7 +256,7 @@ export default function SignUpPage() {
                     }}
                     onBlur={() => setPasswordError(validatePassword(password))}
                     disabled={isSubmitting}
-                    placeholder="At least 6 characters"
+                    placeholder="At least 8 characters"
                     autoComplete="new-password"
                     className={`hud-well w-full rounded-md border py-2 pl-10 pr-10 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] transition-colors focus:outline-none ${
                       passwordError
