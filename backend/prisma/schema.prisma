@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ItemType {
+  FILE
+  SECRET_NOTE
+}
+
+enum AccessAction {
+  CREATED
+  VIEW_META
+  DOWNLOAD_SUCCESS
+  DENIED_PASSWORD
+  DENIED_EXPIRED
+  DENIED_REVOKED
+  DENIED_LIMIT
+  BURNED
+  REVOKED
+}
+
+model User {
+  id                   String   @id @default(uuid())
+  username             String?  @unique
+  email                String?  @unique
+  displayName          String?
+  passwordHash         String?
+  publicKey            String
+  publicKeyFingerprint String
+  encryptedPrivateKey  String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  ownedItems    VaultItem[]    @relation("OwnedItems")
+  receivedKeys  RecipientKey[] @relation("ReceivedKeys")
+  accessLogs    AccessLog[]    @relation("AccessorLogs")
+}
+
+model VaultItem {
+  id                  String   @id @default(uuid())
+  ownerId             String?
+  owner               User?    @relation("OwnedItems", fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerToken          String?
+  mode                String   @default("MODE_B")
+  recipientUsername   String?
+  wrappedAesKeyB64    String?
+  itemType            ItemType @default(FILE)
+  blobKey             String?
+  encryptedPayload    String?
+  encryptedMetadata   String
+  metadataIv          String
+  fileIv              String
+  sha256Checksum      String
+  sizeBytes           Int
+  isPasswordProtected Boolean  @default(false)
+  isBurnAfterReading  Boolean  @default(false)
+  maxDownloads        Int      @default(5)
+  remainingDownloads  Int      @default(5)
+  burned              Boolean  @default(false)
+  expiresAt           DateTime
+  isRevoked           Boolean  @default(false)
+  createdAt           DateTime @default(now())
+
+  recipientKeys RecipientKey[]
+  shareLinks    ShareLink[]
+  accessLogs    AccessLog[]
+
+  @@index([ownerId])
+  @@index([expiresAt])
+}
+
+model RecipientKey {
+  id               String    @id @default(uuid())
+  itemId           String
+  item             VaultItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  recipientId      String
+  recipient        User      @relation("ReceivedKeys", fields: [recipientId], references: [id], onDelete: Cascade)
+  wrappedAesKey    String
+  maxDownloads     Int?
+  downloadCount    Int       @default(0)
+  burnAfterReading Boolean   @default(false)
+  isRevoked        Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+
+  @@unique([itemId, recipientId])
+  @@index([recipientId])
+}
+
+model ShareLink {
+  id                    String    @id @default(uuid())
+  token                 String    @unique
+  itemId                String
+  item                  VaultItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  passwordHash          String?
+  isPassphraseProtected Boolean   @default(false)
+  maxDownloads          Int?
+  downloadCount         Int       @default(0)
+  burnAfterReading      Boolean   @default(false)
+  expiresAt             DateTime
+  isRevoked             Boolean   @default(false)
+  createdAt             DateTime  @default(now())
+
+  accessLogs AccessLog[]
+
+  @@index([itemId])
+  @@index([expiresAt])
+}
+
+model AccessLog {
+  id             String       @id @default(uuid())
+  itemId         String
+  item           VaultItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  shareLinkId    String?
+  shareLink      ShareLink?   @relation(fields: [shareLinkId], references: [id], onDelete: SetNull)
+  accessorUserId String?
+  accessorUser   User?        @relation("AccessorLogs", fields: [accessorUserId], references: [id], onDelete: SetNull)
+  action         AccessAction
+  ipHash         String?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime     @default(now())
+
+  @@index([itemId, createdAt])
+}
