@@ -69,6 +69,8 @@ export function UploadCard() {
   } = useUpload();
 
   const [isDragging, setIsDragging] = useState(false);
+  const [isFileUploaded, setIsFileUploaded] = useState(false);
+  const [generatedLinks, setGeneratedLinks] = useState([]);
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
@@ -97,6 +99,8 @@ export function UploadCard() {
     const dropped = e.dataTransfer?.files?.[0];
     if (dropped) {
       setFile(dropped);
+      setIsFileUploaded(false);
+      setGeneratedLinks([]);
     }
   };
 
@@ -104,6 +108,8 @@ export function UploadCard() {
     const selected = e.target.files?.[0];
     if (selected) {
       setFile(selected);
+      setIsFileUploaded(false);
+      setGeneratedLinks([]);
     }
   };
 
@@ -133,8 +139,27 @@ export function UploadCard() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (tab === 'file' && !isFileUploaded) {
+      if (!file) return;
+      setIsFileUploaded(true);
+      return;
+    }
     try {
-      await executeUpload();
+      const uploadResult = await executeUpload();
+      if (uploadResult?.fullShareUrl) {
+        setGeneratedLinks((prev) => [
+          {
+            fileId: uploadResult.fileId,
+            fullShareUrl: uploadResult.fullShareUrl,
+            mode,
+            expiryMinutes,
+            maxDownloads,
+            isBurnAfterReading,
+            isPasswordProtected,
+          },
+          ...prev,
+        ]);
+      }
     } catch (_) {
       // Error state is handled by useUpload
     }
@@ -142,6 +167,8 @@ export function UploadCard() {
 
   const handleReset = () => {
     reset();
+    setIsFileUploaded(false);
+    setGeneratedLinks([]);
     setLookupStatus('');
     setCopiedLink(false);
     setCopiedToken(false);
@@ -151,20 +178,23 @@ export function UploadCard() {
     }
   };
 
+  const needsFileUploadStep = tab === 'file' && !isFileUploaded;
+
   const getActionLabel = () => {
+    if (needsFileUploadStep) return 'Upload File';
     if (status === 'encrypting') return 'Encrypting...';
     if (status === 'uploading') return 'Uploading...';
-    if (status === 'success') return 'Encrypted & Shared';
     if (status === 'error') return 'Retry Encrypt & Share';
     return 'Encrypt & Share';
   };
 
-  const isSubmitDisabled =
-    isBusy ||
-    (tab === 'file' && !file) ||
-    (tab === 'text' && !textNote.trim()) ||
-    (mode === 'MODE_A' && !recipientUsername.trim()) ||
-    (isPasswordProtected && !password);
+  const isSubmitDisabled = needsFileUploadStep
+    ? isBusy || !file
+    : isBusy ||
+      (tab === 'file' && !file) ||
+      (tab === 'text' && !textNote.trim()) ||
+      (mode === 'MODE_A' && !recipientUsername.trim()) ||
+      (isPasswordProtected && !password);
 
   return (
     <section className="upload-card">
@@ -230,7 +260,15 @@ export function UploadCard() {
                 {file ? (
                   <div className="flex w-full max-w-md items-center justify-between rounded-lg border border-white/10 bg-[#0B0C10] px-4 py-3 text-left">
                     <div className="min-w-0 pr-3">
-                      <p className="truncate text-sm font-semibold text-[#FAFAFA]">{file.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-[#FAFAFA]">{file.name}</p>
+                        {isFileUploaded && (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#10B981]/40 bg-[#10B981]/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#4ADE80]">
+                            <Check className="h-2.5 w-2.5" />
+                            <span>Uploaded</span>
+                          </span>
+                        )}
+                      </div>
                       <p className="font-mono text-xs text-[#71717A]">
                         {formatBytes(file.size)} &bull; {file.type || 'application/octet-stream'}
                       </p>
@@ -240,6 +278,8 @@ export function UploadCard() {
                       onClick={(e) => {
                         e.stopPropagation();
                         setFile(null);
+                        setIsFileUploaded(false);
+                        setGeneratedLinks([]);
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
                       className="rounded p-1 text-[#71717A] hover:bg-white/5 hover:text-[#FAFAFA]"
@@ -537,7 +577,11 @@ export function UploadCard() {
                 disabled={isSubmitDisabled}
                 className="btn-upload inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#10B981] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-lg shadow-emerald-500/25 transition-all hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
               >
-                <Lock className="h-4 w-4" />
+                {needsFileUploadStep ? (
+                  <Upload className="h-4 w-4" />
+                ) : (
+                  <Lock className="h-4 w-4" />
+                )}
                 <span>{getActionLabel()}</span>
               </button>
 
@@ -630,6 +674,40 @@ export function UploadCard() {
                 <p className="truncate font-mono text-[11px] text-[#71717A]">
                   Plaintext SHA-256: {result.sha256Checksum}
                 </p>
+              )}
+
+              {generatedLinks.length > 1 && (
+                <div className="border-t border-white/10 pt-3">
+                  <p className="mb-2 font-mono text-[11px] font-medium text-[#A1A1AA]">
+                    Generated Links for This File ({generatedLinks.length})
+                  </p>
+                  <div className="max-h-36 space-y-1.5 overflow-y-auto pr-1">
+                    {generatedLinks.map((entry, idx) => (
+                      <div
+                        key={`${entry.fileId}-${idx}`}
+                        className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-[#0B0C10] px-2.5 py-1.5"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-mono text-[11px] text-zinc-200">
+                            {entry.fullShareUrl}
+                          </p>
+                          <p className="font-mono text-[10px] text-[#71717A]">
+                            {entry.mode} &bull; {entry.maxDownloads}dl &bull; {entry.expiryMinutes}m
+                            {entry.isBurnAfterReading ? ' • Burn' : ''}
+                            {entry.isPasswordProtected ? ' • Password' : ''}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard?.writeText(entry.fullShareUrl)}
+                          className="shrink-0 rounded border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] text-zinc-200 hover:bg-white/10"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
