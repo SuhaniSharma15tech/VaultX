@@ -153,7 +153,7 @@ export function UploadCard() {
           };
         }
         window.localStorage.setItem(getSettingsStorageKey(user), JSON.stringify(sanitized));
-      } catch (_) {}
+      } catch (_) { }
     },
     [user]
   );
@@ -170,7 +170,7 @@ export function UploadCard() {
           hydratedSettings[fid] = createDefaultFileSettings(cfg);
         }
       }
-    } catch (_) {}
+    } catch (_) { }
 
     try {
       const storageKey = getUserVaultStorageKey(user);
@@ -230,7 +230,7 @@ export function UploadCard() {
 
         // Target only this specific fileId on the backend
         if (cardRecord?.ownerToken) {
-          updateVaultSettings(cardId, cardRecord.ownerToken, next).catch(() => {});
+          updateVaultSettings(cardId, cardRecord.ownerToken, next).catch(() => { });
         }
         return nextMap;
       });
@@ -286,7 +286,7 @@ export function UploadCard() {
         setCardLookupStatusMap((prev) => ({ ...prev, [cardId]: 'found' }));
         return;
       }
-    } catch (_) {}
+    } catch (_) { }
     updateCardSettings(cardId, { recipientInfo: null });
     setCardLookupStatusMap((prev) => ({ ...prev, [cardId]: 'not_found' }));
   };
@@ -297,7 +297,7 @@ export function UploadCard() {
       await navigator.clipboard.writeText(val);
       setter(true);
       setTimeout(() => setter(false), 2000);
-    } catch (_) {}
+    } catch (_) { }
   };
 
   // File Upload tab submit: uploads the selected file and snapshots its initial independent settings
@@ -329,13 +329,13 @@ export function UploadCard() {
 
         // Sync initial settings for this specific fileId on backend
         if (uploaded.ownerToken) {
-          updateVaultSettings(newId, uploaded.ownerToken, initialSettingsSnapshot).catch(() => {});
+          updateVaultSettings(newId, uploaded.ownerToken, initialSettingsSnapshot).catch(() => { });
         }
 
         setRecentFiles((prev) => [uploaded, ...prev].slice(0, 3));
         setSelectedFileCardId(newId);
       }
-    } catch (_) {}
+    } catch (_) { }
   };
 
   // Selected File Card -> Encrypt & Share using ONLY that card's isolated settings
@@ -372,7 +372,7 @@ export function UploadCard() {
     e.preventDefault();
     try {
       await executeUpload();
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const handleResetNote = () => {
@@ -425,11 +425,10 @@ export function UploadCard() {
         </p>
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           <label
-            className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${
-              settings.mode === 'MODE_A'
+            className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${settings.mode === 'MODE_A'
                 ? 'border-[#10B981] bg-[#10B981]/10'
                 : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] hover:border-zinc-300 dark:hover:border-white/20'
-            }`}
+              }`}
           >
             <input
               type="radio"
@@ -452,11 +451,10 @@ export function UploadCard() {
           </label>
 
           <label
-            className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${
-              settings.mode === 'MODE_B'
+            className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${settings.mode === 'MODE_B'
                 ? 'border-[#10B981] bg-[#10B981]/10'
                 : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] hover:border-zinc-300 dark:hover:border-white/20'
-            }`}
+              }`}
           >
             <input
               type="radio"
@@ -567,11 +565,10 @@ export function UploadCard() {
 
         {/* Burn After Reading */}
         <div
-          className={`flex items-center justify-between gap-2.5 rounded-lg border px-3 py-2 transition-colors sm:col-span-2 ${
-            settings.isBurnAfterReading
+          className={`flex items-center justify-between gap-2.5 rounded-lg border px-3 py-2 transition-colors sm:col-span-2 ${settings.isBurnAfterReading
               ? 'border-red-500/50 bg-gradient-to-r from-red-950/30 to-[#0B0C10] text-red-400'
               : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] text-zinc-600 dark:text-[#A1A1AA]'
-          }`}
+            }`}
         >
           <div className="flex items-center gap-2.5">
             <input
@@ -596,11 +593,10 @@ export function UploadCard() {
 
         {/* Password Protection */}
         <div
-          className={`space-y-2.5 rounded-lg border px-3 py-2.5 transition-colors sm:col-span-2 ${
-            settings.isPasswordProtected
+          className={`space-y-2.5 rounded-lg border px-3 py-2.5 transition-colors sm:col-span-2 ${settings.isPasswordProtected
               ? 'border-red-500/40 bg-red-500/10 text-red-400'
               : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] text-zinc-600 dark:text-[#A1A1AA]'
-          }`}
+            }`}
         >
           <div className="flex items-center justify-between gap-2.5">
             <div className="flex items-center gap-2.5">
@@ -777,11 +773,10 @@ export function UploadCard() {
               aria-selected={tab === 'file'}
               onClick={() => setTab('file')}
               disabled={isBusy}
-              className={`tab-file inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${
-                tab === 'file'
+              className={`tab-file inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${tab === 'file'
                   ? 'border-[#10B981]/60 bg-[#10B981]/15 text-zinc-900 dark:text-white'
                   : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-500 dark:text-[#A1A1AA] hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-900 dark:hover:text-[#FAFAFA]'
-              }`}
+                }`}
             >
               <Upload className={`h-3.5 w-3.5 ${tab === 'file' ? 'text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
               <span>File Upload</span>
@@ -793,11 +788,10 @@ export function UploadCard() {
               aria-selected={tab === 'text'}
               onClick={() => setTab('text')}
               disabled={isBusy}
-              className={`tab-note inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${
-                tab === 'text'
+              className={`tab-note inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${tab === 'text'
                   ? 'border-[#10B981]/60 bg-[#10B981]/15 text-zinc-900 dark:text-white'
                   : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-500 dark:text-[#A1A1AA] hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-900 dark:hover:text-[#FAFAFA]'
-              }`}
+                }`}
             >
               <FileText className={`h-3.5 w-3.5 ${tab === 'text' ? 'text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
               <span>Secret Text Note</span>
@@ -812,11 +806,10 @@ export function UploadCard() {
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => !isBusy && fileInputRef.current?.click()}
-                className={`dropzone hud-well flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-5 text-center transition-all ${
-                  isDragging
+                className={`dropzone hud-well flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-5 text-center transition-all ${isDragging
                     ? 'border-[#10B981] bg-[#10B981]/10'
                     : 'border-zinc-300 dark:border-white/15 hover:border-zinc-400 dark:hover:border-white/30'
-                }`}
+                  }`}
               >
                 <input
                   ref={fileInputRef}
@@ -895,8 +888,8 @@ export function UploadCard() {
                   {status === 'encrypting'
                     ? 'Encrypting...'
                     : status === 'uploading'
-                    ? 'Uploading...'
-                    : 'Upload File'}
+                      ? 'Uploading...'
+                      : 'Upload File'}
                 </span>
               </button>
             </form>
@@ -956,12 +949,12 @@ export function UploadCard() {
                     {status === 'encrypting'
                       ? 'Encrypting...'
                       : status === 'uploading'
-                      ? 'Uploading...'
-                      : status === 'success'
-                      ? 'Encrypted & Shared'
-                      : status === 'error'
-                      ? 'Retry Encrypt & Share'
-                      : 'Encrypt & Share'}
+                        ? 'Uploading...'
+                        : status === 'success'
+                          ? 'Encrypted & Shared'
+                          : status === 'error'
+                            ? 'Retry Encrypt & Share'
+                            : 'Encrypt & Share'}
                   </span>
                 </button>
 
@@ -1013,22 +1006,20 @@ export function UploadCard() {
                     key={itemId}
                     type="button"
                     onClick={() => setSelectedFileCardId(isSelected ? null : itemId)}
-                    className={`group flex flex-col justify-between rounded-xl border p-3.5 text-left transition-all ${
-                      isSelected
+                    className={`group flex flex-col justify-between rounded-xl border p-3.5 text-left transition-all ${isSelected
                         ? 'border-[#10B981] bg-[#10B981]/10 shadow-[0_0_20px_-5px_rgba(16,185,129,0.25)]'
                         : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-[#07080B] hover:border-zinc-300 dark:hover:border-white/25'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10]">
                         <FileIcon className="h-4 w-4 text-[#10B981]" />
                       </div>
                       <span
-                        className={`rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${
-                          item.status === 'SHARED'
+                        className={`rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${item.status === 'SHARED'
                             ? 'border-[#10B981]/40 bg-[#10B981]/15 text-[#4ADE80]'
                             : 'border-zinc-300 dark:border-white/15 bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300'
-                        }`}
+                          }`}
                       >
                         {item.status || 'UPLOADED'}
                       </span>
