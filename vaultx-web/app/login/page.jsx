@@ -310,41 +310,15 @@ export default function LoginPage() {
           <div className="border-t border-white/10 bg-[#07080B] px-5 py-3.5 text-center">
             <p className="text-xs text-[#A1A1AA]">
               Don&apos;t have an account?{' '}
-              <button
-                type="button"
+              <Link
+                href="/signup"
                 className="font-mono font-medium text-[#10B981] transition-colors hover:text-[#4ADE80]"
-                onClick={() =>
-                  alert(
-                    'Registration is not available in this demo.\n\nUse demo@vaultx.io / demo1234 to sign in.'
-                  )
-                }
               >
-                Create Account
-              </button>
+                Sign Up
+              </Link>
             </p>
           </div>
         </TerminalWindow>
-
-        {/* ── Demo credentials hint ── */}
-        <div className="mt-5 w-full rounded-xl border border-white/10 bg-[#0B0C10]/80 p-3.5 backdrop-blur-xl">
-          <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">
-            Demo Credentials
-          </p>
-          <div className="space-y-1 font-mono text-[11px]">
-            <div className="flex justify-between">
-              <span className="text-[#71717A]">EMAIL:</span>
-              <span className="text-[#FAFAFA]">demo@vaultx.io</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#71717A]">PASSWORD:</span>
-              <span className="text-[#A1A1AA]">demo1234</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[#71717A]">UNIVERSAL:</span>
-              <span className="text-[#A1A1AA]">vaultx</span>
-            </div>
-          </div>
-        </div>
       </main>
     </div>
   );
