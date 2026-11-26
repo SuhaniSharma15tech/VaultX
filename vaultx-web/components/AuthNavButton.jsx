@@ -31,7 +31,7 @@ export function AuthNavButton({ variant = 'primary', mono = false }) {
         <button
           type="button"
           onClick={handleLogout}
-          className={`inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 ${fontClass}text-xs font-medium text-zinc-700 transition-colors hover:border-red-400 hover:bg-red-50 hover:text-red-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:border-red-500/60 dark:hover:bg-red-500/20`}
+          className={`inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 ${fontClass}text-xs font-medium text-zinc-700 transition-colors hover:border-blue-900/40 hover:bg-blue-50 hover:text-blue-950 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:border-red-500/60 dark:hover:bg-red-500/20`}
         >
           <LogOut className="h-3.5 w-3.5" />
           <span>Logout</span>

@@ -168,8 +168,8 @@ export default function SignUpPage() {
         <TerminalWindow className="w-full">
           <div className="p-5 sm:p-6">
             {redirectNotice && (
-              <div className="mb-4 flex items-start gap-2 rounded-lg border border-[#10B981]/40 bg-[#10B981]/10 p-3 text-xs text-emerald-300">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
+              <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-900/30 bg-blue-50/80 p-3 text-xs text-blue-950 dark:border-[#10B981]/40 dark:bg-[#10B981]/10 dark:text-emerald-300">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-900 dark:text-[#10B981]" />
                 <span>No account found for that email. Create your VaultX account below.</span>
               </div>
             )}
@@ -201,13 +201,13 @@ export default function SignUpPage() {
                     autoComplete="name"
                     className={`w-full rounded-md border py-2 pl-10 pr-3 font-mono text-sm transition-colors focus:outline-none border-zinc-300 bg-white text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 dark:hud-well dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
                       nameError
-                        ? '!border-red-500/60 focus:!border-red-500'
+                        ? '!border-blue-900 focus:!border-blue-950 dark:!border-red-500/60 dark:focus:!border-red-500'
                         : 'dark:border-white/10 dark:focus:border-[#10B981]'
                     }`}
                   />
                 </div>
                 {nameError && (
-                  <p className="mt-1 font-mono text-xs text-red-500 dark:text-red-400">{nameError}</p>
+                  <p className="mt-1 font-mono text-xs font-medium text-blue-950 dark:text-red-400">{nameError}</p>
                 )}
               </div>
 
@@ -238,13 +238,13 @@ export default function SignUpPage() {
                     autoComplete="email"
                     className={`w-full rounded-md border py-2 pl-10 pr-3 font-mono text-sm transition-colors focus:outline-none border-zinc-300 bg-white text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 dark:hud-well dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
                       emailError
-                        ? '!border-red-500/60 focus:!border-red-500'
+                        ? '!border-blue-900 focus:!border-blue-950 dark:!border-red-500/60 dark:focus:!border-red-500'
                         : 'dark:border-white/10 dark:focus:border-[#10B981]'
                     }`}
                   />
                 </div>
                 {emailError && (
-                  <p className="mt-1 font-mono text-xs text-red-500 dark:text-red-400">{emailError}</p>
+                  <p className="mt-1 font-mono text-xs font-medium text-blue-950 dark:text-red-400">{emailError}</p>
                 )}
               </div>
 
@@ -280,7 +280,7 @@ export default function SignUpPage() {
                     autoComplete="new-password"
                     className={`w-full rounded-md border py-2 pl-10 pr-10 font-mono text-sm transition-colors focus:outline-none border-zinc-300 bg-white text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 dark:hud-well dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
                       passwordError
-                        ? '!border-red-500/60 focus:!border-red-500'
+                        ? '!border-blue-900 focus:!border-blue-950 dark:!border-red-500/60 dark:focus:!border-red-500'
                         : 'dark:border-white/10 dark:focus:border-[#10B981]'
                     }`}
                   />
@@ -299,7 +299,7 @@ export default function SignUpPage() {
                   </button>
                 </div>
                 {passwordError && (
-                  <p className="mt-1 font-mono text-xs text-red-500 dark:text-red-400">{passwordError}</p>
+                  <p className="mt-1 font-mono text-xs font-medium text-blue-950 dark:text-red-400">{passwordError}</p>
                 )}
               </div>
 
@@ -332,7 +332,7 @@ export default function SignUpPage() {
                     autoComplete="new-password"
                     className={`w-full rounded-md border py-2 pl-10 pr-10 font-mono text-sm transition-colors focus:outline-none border-zinc-300 bg-white text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 dark:hud-well dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
                       confirmPasswordError
-                        ? '!border-red-500/60 focus:!border-red-500'
+                        ? '!border-blue-900 focus:!border-blue-950 dark:!border-red-500/60 dark:focus:!border-red-500'
                         : 'dark:border-white/10 dark:focus:border-[#10B981]'
                     }`}
                   />
@@ -351,14 +351,14 @@ export default function SignUpPage() {
                   </button>
                 </div>
                 {confirmPasswordError && (
-                  <p className="mt-1 font-mono text-xs text-red-500 dark:text-red-400">{confirmPasswordError}</p>
+                  <p className="mt-1 font-mono text-xs font-medium text-blue-950 dark:text-red-400">{confirmPasswordError}</p>
                 )}
               </div>
 
               {/* ── Server Error ── */}
               {serverError && (
-                <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-500 dark:text-red-400">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="flex items-start gap-2 rounded-lg border border-blue-900/30 bg-blue-50/80 p-3 text-xs text-blue-950 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-900 dark:text-red-400" />
                   <span>{serverError}</span>
                 </div>
               )}

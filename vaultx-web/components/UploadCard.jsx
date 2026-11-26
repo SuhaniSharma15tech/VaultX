@@ -116,6 +116,7 @@ export function UploadCard() {
   const [recentFiles, setRecentFiles] = useState([]);
   const [selectedFileCardId, setSelectedFileCardId] = useState(null);
   const [duplicateFileInfo, setDuplicateFileInfo] = useState(null);
+  const [ttlUnitMap, setTtlUnitMap] = useState({});
 
   // Per-file isolated state keyed by fileId
   const [settingsByFileId, setSettingsByFileId] = useState({});
@@ -467,7 +468,7 @@ export function UploadCard() {
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           <label
             className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${settings.mode === 'MODE_A'
-                ? 'border-[#10B981] bg-[#10B981]/10'
+                ? 'border-blue-900 bg-blue-50/70 dark:border-[#10B981] dark:bg-[#10B981]/10'
                 : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] hover:border-zinc-300 dark:hover:border-white/20'
               }`}
           >
@@ -478,11 +479,11 @@ export function UploadCard() {
               checked={settings.mode === 'MODE_A'}
               onChange={() => onUpdate({ mode: 'MODE_A' })}
               disabled={disabled}
-              className="mt-0.5 accent-[#10B981]"
+              className="mt-0.5 accent-blue-900 dark:accent-[#10B981]"
             />
             <div>
               <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-zinc-900 dark:text-[#FAFAFA]">
-                <UserCheck className={`h-3.5 w-3.5 ${settings.mode === 'MODE_A' ? 'text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+                <UserCheck className={`h-3.5 w-3.5 ${settings.mode === 'MODE_A' ? 'text-blue-950 dark:text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
                 <span>Mode A: Recipient Public Key</span>
               </div>
               <p className="mt-1 text-xs text-zinc-600 dark:text-[#A1A1AA]">
@@ -493,7 +494,7 @@ export function UploadCard() {
 
           <label
             className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${settings.mode === 'MODE_B'
-                ? 'border-[#10B981] bg-[#10B981]/10'
+                ? 'border-blue-900 bg-blue-50/70 dark:border-[#10B981] dark:bg-[#10B981]/10'
                 : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] hover:border-zinc-300 dark:hover:border-white/20'
               }`}
           >
@@ -504,11 +505,11 @@ export function UploadCard() {
               checked={settings.mode === 'MODE_B'}
               onChange={() => onUpdate({ mode: 'MODE_B' })}
               disabled={disabled}
-              className="mt-0.5 accent-[#10B981]"
+              className="mt-0.5 accent-blue-900 dark:accent-[#10B981]"
             />
             <div>
               <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-zinc-900 dark:text-[#FAFAFA]">
-                <Link2 className={`h-3.5 w-3.5 ${settings.mode === 'MODE_B' ? 'text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+                <Link2 className={`h-3.5 w-3.5 ${settings.mode === 'MODE_B' ? 'text-blue-950 dark:text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
                 <span>Mode B: Anonymous Fragment Link</span>
               </div>
               <p className="mt-1 text-xs text-zinc-600 dark:text-[#A1A1AA]">
@@ -535,7 +536,7 @@ export function UploadCard() {
                 onChange={(e) => onUpdate({ recipientUsername: e.target.value, recipientInfo: null })}
                 disabled={disabled}
                 placeholder="Enter recipient handle (e.g. alice_3f9a1c)"
-                className="recipient-input flex-1 rounded-md border border-zinc-300 dark:border-white/10 bg-white dark:bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-zinc-900 dark:text-[#FAFAFA] placeholder-zinc-400 dark:placeholder-[#71717A] focus:border-[#10B981] focus:outline-none"
+                className="recipient-input flex-1 rounded-md border border-zinc-300 dark:border-white/10 bg-white dark:bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-zinc-900 dark:text-[#FAFAFA] placeholder-zinc-400 dark:placeholder-[#71717A] focus:border-blue-950 dark:focus:border-[#10B981] focus:outline-none"
               />
               <button
                 type="button"
@@ -549,8 +550,8 @@ export function UploadCard() {
             </div>
 
             {settings.recipientInfo && (
-              <div className="recipient-fingerprint rounded-lg border border-emerald-500/35 bg-emerald-950/20 p-2.5 text-xs">
-                <p className="font-mono font-semibold text-emerald-400">
+              <div className="recipient-fingerprint rounded-lg border border-blue-200 bg-blue-50/70 dark:border-emerald-500/35 dark:bg-emerald-950/20 p-2.5 text-xs">
+                <p className="font-mono font-semibold text-blue-950 dark:text-emerald-400">
                   Verified Key for {settings.recipientInfo.username}
                 </p>
                 <p className="mt-1 break-all font-mono text-[11px] text-[#A1A1AA]">
@@ -571,21 +572,112 @@ export function UploadCard() {
       {/* Expiration, Download Limits & Security Options */}
       <div className="controls-grid grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-[#07080B] p-3.5 sm:grid-cols-2">
         <div>
-          <label htmlFor={`vaultx-ttl-${scopeId}`} className="mb-1 block text-xs font-medium text-zinc-500 dark:text-[#71717A]">
-            Expiration (TTL)
-          </label>
-          <ThemeSelect
-            id={`vaultx-ttl-${scopeId}`}
-            value={settings.expiryMinutes}
-            onChange={(val) => onUpdate({ expiryMinutes: Number(val) })}
-            disabled={disabled}
-            options={[
-              { value: 10, label: '10 Minutes' },
-              { value: 60, label: '1 Hour' },
-              { value: 1440, label: '24 Hours' },
-              { value: 10080, label: '7 Days' },
-            ]}
-          />
+          <div className="mb-1 flex items-center justify-between">
+            <label htmlFor={`vaultx-ttl-${scopeId}`} className="block text-xs font-medium text-zinc-600 dark:text-[#A1A1AA]">
+              Key Active Time (Custom TTL)
+            </label>
+            <span className="font-mono text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+              {(() => {
+                const m = Math.max(1, Math.min(10080, Number(settings.expiryMinutes) || 60));
+                if (m < 60) return `${m}m active`;
+                if (m % 1440 === 0) return `${m / 1440}d active`;
+                if (m % 60 === 0) return `${m / 60}h active`;
+                return `${Math.floor(m / 60)}h ${m % 60}m active`;
+              })()}
+            </span>
+          </div>
+
+          {(() => {
+            const totalMins = Math.max(1, Math.min(10080, Number(settings.expiryMinutes) || 60));
+            const currentUnit =
+              ttlUnitMap[scopeId] ||
+              (totalMins % 1440 === 0 ? 'days' : totalMins % 60 === 0 ? 'hours' : 'minutes');
+            const multiplier = currentUnit === 'days' ? 1440 : currentUnit === 'hours' ? 60 : 1;
+            const currentVal = Math.max(1, Math.round(totalMins / multiplier));
+
+            const handleValueChange = (e) => {
+              const val = Math.max(1, Number(e.target.value) || 1);
+              const maxVal = currentUnit === 'days' ? 7 : currentUnit === 'hours' ? 168 : 10080;
+              const clamped = Math.min(maxVal, val);
+              onUpdate({ expiryMinutes: Math.min(10080, Math.max(1, clamped * multiplier)) });
+            };
+
+            const handleUnitChange = (unit) => {
+              setTtlUnitMap((prev) => ({ ...prev, [scopeId]: unit }));
+              const newMultiplier = unit === 'days' ? 1440 : unit === 'hours' ? 60 : 1;
+              const newMins = Math.min(10080, Math.max(1, currentVal * newMultiplier));
+              onUpdate({ expiryMinutes: newMins });
+            };
+
+            const handlePresetClick = (mins) => {
+              const presetUnit = mins % 1440 === 0 ? 'days' : mins % 60 === 0 ? 'hours' : 'minutes';
+              setTtlUnitMap((prev) => ({ ...prev, [scopeId]: presetUnit }));
+              onUpdate({ expiryMinutes: mins });
+            };
+
+            return (
+              <>
+                <div className="flex gap-2">
+                  <input
+                    id={`vaultx-ttl-${scopeId}`}
+                    type="number"
+                    min={1}
+                    max={currentUnit === 'days' ? 7 : currentUnit === 'hours' ? 168 : 10080}
+                    value={currentVal}
+                    onChange={handleValueChange}
+                    disabled={disabled}
+                    placeholder="Enter custom duration"
+                    className="ttl-input flex-1 rounded-md border border-zinc-300 dark:border-white/10 bg-white dark:bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-zinc-900 dark:text-[#FAFAFA] focus:border-zinc-900 dark:focus:border-[#10B981] focus:outline-none disabled:opacity-50"
+                  />
+                  <div className="w-28 shrink-0">
+                    <ThemeSelect
+                      id={`vaultx-ttl-unit-${scopeId}`}
+                      value={currentUnit}
+                      onChange={handleUnitChange}
+                      disabled={disabled}
+                      options={[
+                        { value: 'minutes', label: 'Minutes' },
+                        { value: 'hours', label: 'Hours' },
+                        { value: 'days', label: 'Days' },
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="mt-2 flex flex-wrap items-center gap-1 font-mono text-[10px]">
+                  <span className="text-zinc-400 dark:text-[#71717A] mr-0.5">Quick:</span>
+                  {[
+                    { label: '10m', mins: 10 },
+                    { label: '30m', mins: 30 },
+                    { label: '1h', mins: 60 },
+                    { label: '4h', mins: 240 },
+                    { label: '12h', mins: 720 },
+                    { label: '24h', mins: 1440 },
+                    { label: '3d', mins: 4320 },
+                    { label: '7d', mins: 10080 },
+                  ].map((preset) => {
+                    const isActive = totalMins === preset.mins;
+                    return (
+                      <button
+                        key={preset.mins}
+                        type="button"
+                        onClick={() => handlePresetClick(preset.mins)}
+                        disabled={disabled}
+                        className={`rounded px-1.5 py-0.5 transition-colors ${
+                          isActive
+                            ? 'bg-zinc-900 text-white font-bold dark:bg-[#10B981] dark:text-black'
+                            : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-white/5 dark:text-zinc-400 dark:hover:bg-white/10'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         <div>
@@ -600,14 +692,14 @@ export function UploadCard() {
             value={settings.maxDownloads}
             onChange={(e) => onUpdate({ maxDownloads: Math.max(1, Number(e.target.value) || 1) })}
             disabled={disabled || settings.isBurnAfterReading}
-            className="max-downloads-input w-full rounded-md border border-zinc-300 dark:border-white/10 bg-white dark:bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-zinc-900 dark:text-[#FAFAFA] focus:border-[#10B981] focus:outline-none disabled:opacity-50"
+            className="max-downloads-input w-full rounded-md border border-zinc-300 dark:border-white/10 bg-white dark:bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-zinc-900 dark:text-[#FAFAFA] focus:border-blue-950 dark:focus:border-[#10B981] focus:outline-none disabled:opacity-50"
           />
         </div>
 
         {/* Burn After Reading */}
         <div
           className={`flex items-center justify-between gap-2.5 rounded-lg border px-3 py-2 transition-colors sm:col-span-2 ${settings.isBurnAfterReading
-              ? 'border-red-500/50 bg-gradient-to-r from-red-950/30 to-[#0B0C10] text-red-400'
+              ? 'border-blue-300 bg-blue-50/90 text-blue-950 dark:border-red-500/60 dark:bg-gradient-to-r dark:from-red-950/40 dark:to-[#0B0C10] dark:text-red-200'
               : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] text-zinc-600 dark:text-[#A1A1AA]'
             }`}
         >
@@ -618,15 +710,15 @@ export function UploadCard() {
               checked={settings.isBurnAfterReading}
               onChange={(e) => onUpdate({ isBurnAfterReading: e.target.checked })}
               disabled={disabled}
-              className="burn-checkbox h-4 w-4 rounded border-white/20 bg-[#050508] accent-red-500"
+              className="burn-checkbox h-4 w-4 rounded border-zinc-300 accent-blue-900 dark:border-white/20 dark:bg-[#050508] dark:accent-red-500"
             />
-            <label htmlFor={`vaultx-burn-${scopeId}`} className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium">
-              <Flame className={`h-3.5 w-3.5 ${settings.isBurnAfterReading ? 'text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+            <label htmlFor={`vaultx-burn-${scopeId}`} className={`inline-flex cursor-pointer items-center gap-1.5 text-xs ${settings.isBurnAfterReading ? 'font-semibold text-blue-950 dark:text-red-200' : 'font-medium text-zinc-700 dark:text-zinc-300'}`}>
+              <Flame className={`h-3.5 w-3.5 ${settings.isBurnAfterReading ? 'text-blue-900 dark:text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
               <span>Burn After Reading (1 View)</span>
             </label>
           </div>
           {settings.isBurnAfterReading && (
-            <span className="rounded border border-red-500/40 bg-red-500/15 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-red-400">
+            <span className="rounded border border-blue-900/30 bg-blue-100/90 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-blue-950 dark:border-red-500/60 dark:bg-red-500/20 dark:text-red-300">
               Self-Destruct Armed
             </span>
           )}
@@ -635,7 +727,7 @@ export function UploadCard() {
         {/* Password Protection */}
         <div
           className={`space-y-2.5 rounded-lg border px-3 py-2.5 transition-colors sm:col-span-2 ${settings.isPasswordProtected
-              ? 'border-red-500/40 bg-red-500/10 text-red-400'
+              ? 'border-blue-300 bg-blue-50/90 text-blue-950 dark:border-red-500/50 dark:bg-red-500/10 dark:text-red-200'
               : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] text-zinc-600 dark:text-[#A1A1AA]'
             }`}
         >
@@ -647,15 +739,15 @@ export function UploadCard() {
                 checked={settings.isPasswordProtected}
                 onChange={(e) => onUpdate({ isPasswordProtected: e.target.checked })}
                 disabled={disabled}
-                className="password-toggle h-4 w-4 rounded border-white/20 bg-[#050508] accent-red-500"
+                className="password-toggle h-4 w-4 rounded border-zinc-300 accent-blue-900 dark:border-white/20 dark:bg-[#050508] dark:accent-red-500"
               />
-              <label htmlFor={`vaultx-password-toggle-${scopeId}`} className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium">
-                <Lock className={`h-3.5 w-3.5 ${settings.isPasswordProtected ? 'text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+              <label htmlFor={`vaultx-password-toggle-${scopeId}`} className={`inline-flex cursor-pointer items-center gap-1.5 text-xs ${settings.isPasswordProtected ? 'font-semibold text-blue-950 dark:text-red-200' : 'font-medium text-zinc-700 dark:text-zinc-300'}`}>
+                <Lock className={`h-3.5 w-3.5 ${settings.isPasswordProtected ? 'text-blue-900 dark:text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
                 <span>Require Additional Password (PBKDF2 key wrapping)</span>
               </label>
             </div>
             {settings.isPasswordProtected && (
-              <span className="rounded border border-red-500/40 bg-red-500/15 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-red-400">
+              <span className="rounded border border-blue-900/30 bg-blue-100/90 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-blue-950 dark:border-red-500/60 dark:bg-red-500/20 dark:text-red-300">
                 Locked
               </span>
             )}
@@ -689,9 +781,9 @@ export function UploadCard() {
   );
 
   const renderShareOutput = (outputResult, extraLinks = []) => (
-    <div className="share-output hud-well mt-4 space-y-4 rounded-xl border border-emerald-500/35 p-4">
+    <div className="share-output hud-well mt-4 space-y-4 rounded-xl border border-blue-900/30 dark:border-emerald-500/35 p-4">
       <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-        <h3 className="font-mono text-sm font-bold text-emerald-400">
+        <h3 className="font-mono text-sm font-bold text-blue-950 dark:text-emerald-400">
           Vault Ready &amp; Encrypted
         </h3>
         <span className="font-mono text-xs text-[#71717A]">ID: {outputResult.fileId}</span>
@@ -712,7 +804,7 @@ export function UploadCard() {
           <button
             type="button"
             onClick={() => handleCopyText(outputResult.fullShareUrl, setCopiedLink)}
-            className="btn-copy-link inline-flex items-center gap-1.5 rounded-md bg-[#10B981] px-3 py-1.5 font-mono text-xs font-semibold text-white shadow-md shadow-emerald-500/20 hover:bg-[#059669]"
+            className="btn-copy-link inline-flex items-center gap-1.5 rounded-md bg-zinc-900 hover:bg-black text-white dark:bg-[#10B981] dark:hover:bg-[#059669] px-3 py-1.5 font-mono text-xs font-semibold shadow-md dark:shadow-emerald-500/20"
           >
             {copiedLink ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             <span>{copiedLink ? 'Copied' : 'Copy'}</span>
@@ -815,11 +907,11 @@ export function UploadCard() {
               onClick={() => setTab('file')}
               disabled={isBusy}
               className={`tab-file inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${tab === 'file'
-                  ? 'border-[#10B981]/60 bg-[#10B981]/15 text-zinc-900 dark:text-white'
+                  ? 'border-blue-900 bg-blue-50 text-blue-950 font-semibold dark:border-[#10B981]/60 dark:bg-[#10B981]/15 dark:text-white'
                   : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-500 dark:text-[#A1A1AA] hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-900 dark:hover:text-[#FAFAFA]'
                 }`}
             >
-              <Upload className={`h-3.5 w-3.5 ${tab === 'file' ? 'text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+              <Upload className={`h-3.5 w-3.5 ${tab === 'file' ? 'text-blue-950 dark:text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
               <span>File Upload</span>
             </button>
 
@@ -830,11 +922,11 @@ export function UploadCard() {
               onClick={() => setTab('text')}
               disabled={isBusy}
               className={`tab-note inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${tab === 'text'
-                  ? 'border-[#10B981]/60 bg-[#10B981]/15 text-zinc-900 dark:text-white'
+                  ? 'border-blue-900 bg-blue-50 text-blue-950 font-semibold dark:border-[#10B981]/60 dark:bg-[#10B981]/15 dark:text-white'
                   : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/[0.03] text-zinc-500 dark:text-[#A1A1AA] hover:border-zinc-300 dark:hover:border-white/20 hover:text-zinc-900 dark:hover:text-[#FAFAFA]'
                 }`}
             >
-              <FileText className={`h-3.5 w-3.5 ${tab === 'text' ? 'text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+              <FileText className={`h-3.5 w-3.5 ${tab === 'text' ? 'text-blue-950 dark:text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
               <span>Secret Text Note</span>
             </button>
           </div>
@@ -848,7 +940,7 @@ export function UploadCard() {
                 onDrop={handleDrop}
                 onClick={() => !isBusy && fileInputRef.current?.click()}
                 className={`dropzone hud-well flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-5 text-center transition-all ${isDragging
-                    ? 'border-[#10B981] bg-[#10B981]/10'
+                    ? 'border-blue-900 bg-blue-50/70 dark:border-[#10B981] dark:bg-[#10B981]/10'
                     : 'border-zinc-300 dark:border-white/15 hover:border-zinc-400 dark:hover:border-white/30'
                   }`}
               >
@@ -861,9 +953,17 @@ export function UploadCard() {
                   aria-label="Select file to encrypt"
                 />
                 {file ? (
-                  <div className="flex w-full max-w-md items-center justify-between rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10] px-4 py-3 text-left">
+                  <div className="flex w-full max-w-md items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3 text-left shadow-sm dark:border-white/10 dark:bg-[#0B0C10]">
                     <div className="min-w-0 pr-3">
-                      <p className="truncate text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">{file.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">{file.name}</p>
+                        {(status === 'success' || Boolean(result)) && (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded border border-blue-900/30 bg-blue-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-blue-950 dark:border-[#10B981]/40 dark:bg-[#10B981]/15 dark:text-[#4ADE80]">
+                            <Check className="h-2.5 w-2.5 text-blue-900 dark:text-[#4ADE80]" />
+                            <span>Uploaded</span>
+                          </span>
+                        )}
+                      </div>
                       <p className="font-mono text-xs text-zinc-500 dark:text-[#71717A]">
                         {formatBytes(file.size)} &bull; {file.type || 'application/octet-stream'}
                       </p>
@@ -876,7 +976,7 @@ export function UploadCard() {
                         setDuplicateFileInfo(null);
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
-                      className="rounded p-1 text-zinc-400 dark:text-[#71717A] hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-[#FAFAFA]"
+                      className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:text-[#71717A] dark:hover:bg-white/5 dark:hover:text-[#FAFAFA]"
                       aria-label="Remove selected file"
                     >
                       <X className="h-4 w-4" />
@@ -884,8 +984,8 @@ export function UploadCard() {
                   </div>
                 ) : (
                   <>
-                    <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-full border border-[#10B981]/40 bg-[#10B981]/15">
-                      <Upload className="h-5 w-5 text-[#10B981]" />
+                    <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-full border border-blue-900/30 bg-blue-50 dark:border-[#10B981]/40 dark:bg-[#10B981]/15">
+                      <Upload className="h-5 w-5 text-blue-950 dark:text-[#10B981]" />
                     </div>
                     <p className="text-sm font-medium text-zinc-900 dark:text-[#FAFAFA]">
                       Drag and drop a file here, or click to browse
@@ -909,16 +1009,16 @@ export function UploadCard() {
               })}
 
               {error && (
-                <div className="error-banner flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
+                <div className="error-banner flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-900/30 bg-blue-50/90 p-3 text-xs text-blue-950 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-900 dark:text-red-400" />
                     <span>{error}</span>
                   </div>
                   {duplicateFileInfo && (
                     <button
                       type="button"
                       onClick={handleOpenExistingFile}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[#10B981]/50 bg-[#10B981]/15 px-3 py-1.5 font-mono text-xs font-semibold text-[#4ADE80] transition-colors hover:bg-[#10B981]/25"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-blue-900/40 bg-blue-100/80 px-3 py-1.5 font-mono text-xs font-semibold text-blue-950 transition-colors hover:bg-blue-200/80 dark:border-[#10B981]/50 dark:bg-[#10B981]/15 dark:text-[#4ADE80] dark:hover:bg-[#10B981]/25"
                     >
                       <span>Open Existing File</span>
                       <ChevronRight className="h-3.5 w-3.5" />
@@ -931,7 +1031,7 @@ export function UploadCard() {
               <button
                 type="submit"
                 disabled={isBusy || !file}
-                className="btn-upload inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#10B981] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-lg shadow-emerald-500/25 transition-all hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                className="btn-upload inline-flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-900 hover:bg-black dark:bg-[#10B981] dark:hover:bg-[#059669] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-md dark:shadow-emerald-500/25 transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
               >
                 {isBusy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -965,7 +1065,7 @@ export function UploadCard() {
                   onChange={(e) => setTextNote(e.target.value)}
                   disabled={isBusy}
                   placeholder="Paste API keys, recovery phrases, or private notes..."
-                  className="secret-note-textarea hud-well w-full rounded-xl border border-zinc-200 dark:border-white/10 p-3.5 font-mono text-sm text-zinc-900 dark:text-[#FAFAFA] placeholder-zinc-400 dark:placeholder-[#71717A] focus:border-[#10B981] focus:outline-none"
+                  className="secret-note-textarea hud-well w-full rounded-xl border border-zinc-200 dark:border-white/10 p-3.5 font-mono text-sm text-zinc-900 dark:text-[#FAFAFA] placeholder-zinc-400 dark:placeholder-[#71717A] focus:border-blue-950 dark:focus:border-[#10B981] focus:outline-none"
                 />
               </div>
 
@@ -981,16 +1081,16 @@ export function UploadCard() {
               })}
 
               {error && (
-                <div className="error-banner flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
+                <div className="error-banner flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-900/30 bg-blue-50/90 p-3 text-xs text-blue-950 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-900 dark:text-red-400" />
                     <span>{error}</span>
                   </div>
                   {duplicateFileInfo && (
                     <button
                       type="button"
                       onClick={handleOpenExistingFile}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[#10B981]/50 bg-[#10B981]/15 px-3 py-1.5 font-mono text-xs font-semibold text-[#4ADE80] transition-colors hover:bg-[#10B981]/25"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-blue-900/40 bg-blue-100/80 px-3 py-1.5 font-mono text-xs font-semibold text-blue-950 transition-colors hover:bg-blue-200/80 dark:border-[#10B981]/50 dark:bg-[#10B981]/15 dark:text-[#4ADE80] dark:hover:bg-[#10B981]/25"
                     >
                       <span>Open Existing File</span>
                       <ChevronRight className="h-3.5 w-3.5" />
@@ -1008,7 +1108,7 @@ export function UploadCard() {
                     (mode === 'MODE_A' && !recipientUsername.trim()) ||
                     (isPasswordProtected && !password)
                   }
-                  className="btn-upload inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#10B981] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-lg shadow-emerald-500/25 transition-all hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                  className="btn-upload inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-900 hover:bg-black dark:bg-[#10B981] dark:hover:bg-[#059669] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-md dark:shadow-emerald-500/25 transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                 >
                   <Lock className="h-4 w-4" />
                   <span>
@@ -1057,7 +1157,7 @@ export function UploadCard() {
               </div>
               <Link
                 href="/dashboard"
-                className="font-mono text-xs font-medium text-[#10B981] hover:text-[#4ADE80]"
+                className="font-mono text-xs font-semibold text-blue-950 hover:underline dark:text-[#10B981] dark:hover:text-[#4ADE80]"
               >
                 View All &rarr;
               </Link>
@@ -1073,17 +1173,17 @@ export function UploadCard() {
                     type="button"
                     onClick={() => setSelectedFileCardId(isSelected ? null : itemId)}
                     className={`group flex flex-col justify-between rounded-xl border p-3.5 text-left transition-all ${isSelected
-                        ? 'border-[#10B981] bg-[#10B981]/10 shadow-[0_0_20px_-5px_rgba(16,185,129,0.25)]'
+                        ? 'border-blue-900 bg-blue-50/70 shadow-sm dark:border-[#10B981] dark:bg-[#10B981]/10 dark:shadow-[0_0_20px_-5px_rgba(16,185,129,0.25)]'
                         : 'border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-[#07080B] hover:border-zinc-300 dark:hover:border-white/25'
                       }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0B0C10]">
-                        <FileIcon className="h-4 w-4 text-[#10B981]" />
+                        <FileIcon className="h-4 w-4 text-blue-950 dark:text-[#10B981]" />
                       </div>
                       <span
                         className={`rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase ${item.status === 'SHARED'
-                            ? 'border-[#10B981]/40 bg-[#10B981]/15 text-[#4ADE80]'
+                            ? 'border-blue-300 bg-blue-50 text-blue-900 dark:border-[#10B981]/40 dark:bg-[#10B981]/15 dark:text-[#4ADE80]'
                             : 'border-zinc-300 dark:border-white/15 bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300'
                           }`}
                       >
@@ -1104,7 +1204,7 @@ export function UploadCard() {
                       </div>
                     </div>
 
-                    <div className="mt-2.5 flex items-center justify-between border-t border-zinc-200 dark:border-white/10 pt-2 font-mono text-[11px] text-[#10B981]">
+                    <div className="mt-2.5 flex items-center justify-between border-t border-zinc-200 dark:border-white/10 pt-2 font-mono text-[11px] text-blue-950 font-semibold dark:text-[#10B981]">
                       <span>{isSelected ? 'Configuring...' : 'Configure & Share'}</span>
                       <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isSelected ? 'rotate-90' : ''}`} />
                     </div>
@@ -1115,7 +1215,7 @@ export function UploadCard() {
 
             {/* Selected File Details & Isolated Share Settings */}
             {selectedFileCard && activeCardSettings && (
-              <div className="mt-4 space-y-4 rounded-xl border border-[#10B981]/30 bg-zinc-50 dark:bg-[#050508]/80 p-4">
+              <div className="mt-4 space-y-4 rounded-xl border border-blue-900/30 bg-blue-50/30 dark:border-[#10B981]/30 dark:bg-[#050508]/80 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 dark:border-white/10 pb-3">
                   <div className="min-w-0">
                     <p className="truncate font-mono text-sm font-bold text-zinc-900 dark:text-[#FAFAFA]">
@@ -1152,8 +1252,8 @@ export function UploadCard() {
                 })}
 
                 {activeShareError && (
-                  <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div className="flex items-start gap-2 rounded-lg border border-blue-900/30 bg-blue-50/90 p-3 text-xs text-blue-950 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-900 dark:text-red-400" />
                     <span>{activeShareError}</span>
                   </div>
                 )}
@@ -1167,7 +1267,7 @@ export function UploadCard() {
                       !activeCardSettings.recipientUsername.trim()) ||
                     (activeCardSettings.isPasswordProtected && !activeCardSettings.password)
                   }
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#10B981] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-lg shadow-emerald-500/25 transition-all hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-900 hover:bg-black dark:bg-[#10B981] dark:hover:bg-[#059669] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-md dark:shadow-emerald-500/25 transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                 >
                   {isSharing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
