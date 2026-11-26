@@ -6,7 +6,7 @@ import { ChevronDown, Check } from 'lucide-react';
 /**
  * ThemeSelect
  * Matte charcoal (#0B0C10) glassmorphic dropdown matching the Obsidian,
- * Deep Violet (#7C3AED), and Crimson identity (zero cyan).
+ * Cyber Green (#10B981), and Crimson identity.
  */
 export function ThemeSelect({
   id,
@@ -54,14 +54,14 @@ export function ThemeSelect({
         onClick={() => !disabled && setIsOpen((prev) => !prev)}
         className={`ttl-select flex w-full items-center justify-between rounded-md border bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-[#FAFAFA] transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
           isOpen
-            ? 'border-[#7C3AED] shadow-[0_0_16px_rgba(124,58,237,0.22)]'
+            ? 'border-[#10B981] shadow-[0_0_16px_rgba(16,185,129,0.25)]'
             : 'border-white/10 hover:border-white/20'
         }`}
       >
         <span>{selectedOption ? selectedOption.label : ''}</span>
         <ChevronDown
           className={`h-4 w-4 text-[#71717A] transition-transform duration-150 ${
-            isOpen ? 'rotate-180 text-[#7C3AED]' : ''
+            isOpen ? 'rotate-180 text-[#10B981]' : ''
           }`}
         />
       </button>
@@ -84,12 +84,12 @@ export function ThemeSelect({
                   }}
                   className={`flex w-full items-center justify-between px-3 py-2 text-left font-mono text-xs transition-colors ${
                     isSelected
-                      ? 'bg-[#7C3AED]/20 text-white'
+                      ? 'bg-[#10B981]/20 text-white font-medium border-l-2 border-[#10B981]'
                       : 'text-[#A1A1AA] hover:bg-white/5 hover:text-[#FAFAFA]'
                   }`}
                 >
                   <span>{opt.label}</span>
-                  {isSelected && <Check className="h-3.5 w-3.5 text-[#7C3AED]" />}
+                  {isSelected && <Check className="h-3.5 w-3.5 text-[#10B981]" />}
                 </button>
               </li>
             );

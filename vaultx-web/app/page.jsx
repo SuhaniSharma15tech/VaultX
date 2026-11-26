@@ -8,7 +8,7 @@ import { KeySetupModal } from '../components/KeySetupModal.jsx';
 
 /**
  * HomePage (/)
- * Sleek Obsidian Black, Deep Violet, and Tactical Crimson Red VaultX upload view.
+ * Sleek Obsidian Black, Cyber Green, and Tactical Crimson Red VaultX upload view.
  */
 export default function HomePage() {
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
@@ -79,7 +79,7 @@ export default function HomePage() {
           <div className="animate-float-slow pointer-events-none absolute -left-52 top-10 hidden w-44 rounded-xl border border-white/10 bg-[#0B0C10]/90 p-3.5 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.06)] xl:block">
             <div className="mb-2 flex items-center justify-between border-b border-white/10 pb-1.5 font-mono text-[10px] text-[#71717A]">
               <span>CLIENT_ISOLATION</span>
-              <span className="h-1.5 w-1.5 rounded-full bg-[#7C3AED]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#10B981] shadow-[0_0_8px_#10B981]" />
             </div>
             <div className="space-y-1 font-mono text-[11px]">
               <div className="flex justify-between">

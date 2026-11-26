@@ -25,6 +25,14 @@
     background-color: #050508;
   }
 
+  .cyber-canvas-grid {
+    background-image:
+      linear-gradient(to right, rgba(16, 185, 129, 0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(239, 68, 68, 0.08) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse 95% 85% at 50% 50%, #000 50%, transparent 100%);
+  }
+
   .perspective-stage {
     perspective: 280px;
     overflow: hidden;
@@ -36,8 +44,8 @@
     transform: rotateX(68deg);
     transform-origin: 50% 100%;
     background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+      linear-gradient(to right, rgba(16, 185, 129, 0.22) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(239, 68, 68, 0.22) 1px, transparent 1px);
     background-size: 46px 42px;
     mask-image: linear-gradient(to bottom, transparent 10%, rgba(0, 0, 0, 0.9) 60%, #000 100%);
   }
@@ -59,13 +67,13 @@
   .spin-radial-glow {
     background: conic-gradient(
       from 0deg at 50% 50%,
-      rgba(124, 58, 237, 0.22) 0deg,
-      transparent 80deg,
-      rgba(239, 68, 68, 0.16) 160deg,
-      transparent 230deg,
-      rgba(91, 33, 182, 0.18) 300deg,
-      transparent 345deg,
-      rgba(124, 58, 237, 0.22) 360deg
+      rgba(16, 185, 129, 0.24) 0deg,
+      transparent 70deg,
+      rgba(239, 68, 68, 0.22) 150deg,
+      transparent 220deg,
+      rgba(34, 197, 94, 0.20) 290deg,
+      rgba(220, 38, 38, 0.18) 330deg,
+      rgba(16, 185, 129, 0.24) 360deg
     );
     animation: spinRadial 24s linear infinite;
   }

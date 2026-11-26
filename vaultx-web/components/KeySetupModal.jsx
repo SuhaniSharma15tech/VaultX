@@ -164,14 +164,14 @@ export function KeySetupModal({ isOpen, onClose, onKeyGenerated, initialUsername
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="e.g. alice"
-                className="key-username-input hud-well w-full rounded-md border border-white/10 px-3 py-2 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#7C3AED] focus:outline-none"
+                className="key-username-input hud-well w-full rounded-md border border-white/10 px-3 py-2 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#10B981] focus:outline-none"
               />
             </div>
 
             <button
               type="submit"
               disabled={status === 'generating'}
-              className="btn-generate-key inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#7C3AED] px-4 py-2.5 font-mono text-xs font-semibold tracking-wide text-white shadow-lg shadow-violet-600/25 hover:bg-[#6D28D9] disabled:opacity-50"
+              className="btn-generate-key inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#10B981] px-4 py-2.5 font-mono text-xs font-semibold tracking-wide text-white shadow-lg shadow-emerald-500/25 hover:bg-[#059669] disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${status === 'generating' ? 'animate-spin' : ''}`} />
               <span>

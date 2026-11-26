@@ -9,7 +9,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className="dark">
-      <body className="font-sans antialiased bg-[#050508] text-[#FAFAFA] min-h-screen selection:bg-[#7C3AED]/30 selection:text-white">
+      <body className="font-sans antialiased bg-[#050508] text-[#FAFAFA] min-h-screen selection:bg-[#10B981]/30 selection:text-emerald-300">
         <CyberBackdrop />
         {children}
       </body>

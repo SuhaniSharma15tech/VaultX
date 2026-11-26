@@ -110,7 +110,7 @@ export function QRModal({ isOpen, onClose, shareUrl, url, title = 'Zero-Knowledg
             type="button"
             onClick={handleCopy}
             disabled={!targetUrl}
-            className="btn-copy inline-flex items-center gap-1.5 rounded-md bg-[#7C3AED] px-4 py-2 font-mono text-xs font-semibold text-white shadow-lg shadow-violet-600/25 hover:bg-[#6D28D9] disabled:opacity-50"
+            className="btn-copy inline-flex items-center gap-1.5 rounded-md bg-[#10B981] px-4 py-2 font-mono text-xs font-semibold text-white shadow-lg shadow-emerald-500/25 hover:bg-[#059669] disabled:opacity-50"
           >
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             <span>{copied ? 'Copied' : 'Copy Link'}</span>

@@ -14,6 +14,8 @@ import {
   File,
   AlertCircle,
   Loader2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useDecrypt } from '../hooks/useDecrypt.js';
 import { TerminalWindow } from './TerminalWindow.jsx';
@@ -71,6 +73,7 @@ export function DecryptView({ fileId }) {
 
   const [manualKeyInput, setManualKeyInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [ownerTokenInput, setOwnerTokenInput] = useState('');
   const [showDestroyPrompt, setShowDestroyPrompt] = useState(false);
   const [copiedNote, setCopiedNote] = useState(false);
@@ -115,20 +118,20 @@ export function DecryptView({ fileId }) {
     if (!meta) return null;
     if (meta.mode === 'MODE_A') {
       return (
-        <span className="key-badge inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-xs font-medium text-zinc-200">
-          <Key className="h-3.5 w-3.5 text-[#7C3AED]" />
+        <span className="key-badge inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-950/20 px-2.5 py-1 font-mono text-xs font-medium text-emerald-300">
+          <Key className="h-3.5 w-3.5 text-[#10B981]" />
           <span>Mode A: RSA Private Key (IndexedDB)</span>
         </span>
       );
     }
 
     return hasFragmentKey ? (
-      <span className="key-badge inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-xs font-medium text-zinc-200">
-        <Key className="h-3.5 w-3.5 text-[#7C3AED]" />
+      <span className="key-badge inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-950/20 px-2.5 py-1 font-mono text-xs font-medium text-emerald-300">
+        <Key className="h-3.5 w-3.5 text-[#10B981]" />
         <span>Key Detected from URL #fragment</span>
       </span>
     ) : (
-      <span className="key-badge-missing inline-flex items-center gap-1.5 rounded-md border border-red-500/40 bg-red-500/10 px-2.5 py-1 font-mono text-xs font-medium text-red-400">
+      <span className="key-badge-missing inline-flex items-center gap-1.5 rounded-md border border-red-500/50 bg-red-950/30 px-2.5 py-1 font-mono text-xs font-medium text-red-400">
         <Key className="h-3.5 w-3.5 text-red-400" />
         <span>No #fragment Key Found (Manual Key Required)</span>
       </span>
@@ -184,7 +187,7 @@ export function DecryptView({ fileId }) {
           {/* Loading / Decrypting States */}
           {(status === 'loading_meta' || status === 'decrypting') && (
             <div className="hud-well flex items-center gap-3 rounded-xl border border-white/10 p-6 font-mono text-sm text-[#A1A1AA]">
-              <Loader2 className="h-5 w-5 animate-spin text-[#7C3AED]" />
+              <Loader2 className="h-5 w-5 animate-spin text-[#10B981]" />
               <span>
                 {status === 'loading_meta'
                   ? 'Loading encrypted vault metadata...'
@@ -224,12 +227,12 @@ export function DecryptView({ fileId }) {
                     value={manualKeyInput}
                     onChange={(e) => setManualKeyInput(e.target.value)}
                     placeholder="Paste Base64URL fragment key..."
-                    className="manual-key-input flex-1 rounded-md border border-white/10 bg-[#0B0C10] px-3 py-2 font-mono text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#7C3AED] focus:outline-none"
+                    className="manual-key-input flex-1 rounded-md border border-white/10 bg-[#0B0C10] px-3 py-2 font-mono text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#10B981] focus:outline-none"
                   />
                   <button
                     type="submit"
                     disabled={!manualKeyInput.trim()}
-                    className="btn-unlock-key rounded-md bg-[#7C3AED] px-4 py-2 font-mono text-xs font-semibold text-white shadow-lg shadow-violet-600/25 hover:bg-[#6D28D9] disabled:opacity-50"
+                    className="btn-unlock-key rounded-md bg-[#10B981] px-4 py-2 font-mono text-xs font-semibold text-white shadow-lg shadow-emerald-500/25 hover:bg-[#059669] disabled:opacity-50"
                   >
                     {status === 'error' ? 'Retry Key' : 'Unlock Vault'}
                   </button>
@@ -241,34 +244,48 @@ export function DecryptView({ fileId }) {
           {status === 'password_required' && (
             <form
               onSubmit={handlePasswordSubmit}
-              className="password-challenge hud-well space-y-3 rounded-xl border border-red-500/40 bg-red-500/5 p-5"
+              className="password-challenge hud-well space-y-3 rounded-xl border border-red-500/40 bg-gradient-to-br from-red-950/25 via-[#0B0C10] to-[#07080B] p-5 shadow-[0_0_30px_rgba(239,68,68,0.12)]"
             >
               <div className="flex items-center gap-2 text-red-400">
-                <Lock className="h-4 w-4" />
+                <Lock className="h-4 w-4 text-red-400" />
                 <h3 className="font-mono text-sm font-bold">Password Required</h3>
               </div>
               <p className="text-xs text-[#A1A1AA]">
                 This vault is protected with an additional PBKDF2 password wrapper.
               </p>
               {error && (
-                <div className="flex items-center gap-2 rounded-md border border-red-500/40 bg-red-500/10 p-2.5 text-xs text-red-400">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
+                <div className="flex items-center gap-2 rounded-md border border-red-500/50 bg-red-950/30 p-2.5 text-xs text-red-300">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
                   <span>{error}</span>
                 </div>
               )}
               <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="Enter vault password..."
-                  aria-label="Vault password"
-                  className="password-challenge-input flex-1 rounded-md border border-red-500/30 bg-[#0B0C10] px-3 py-2 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-red-500 focus:outline-none"
-                />
+                <div className="relative flex-1">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="Enter vault password..."
+                    aria-label="Vault password"
+                    className="password-challenge-input w-full rounded-md border border-red-500/40 bg-[#0B0C10] px-3 py-2 pr-10 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-red-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#71717A] hover:text-[#FAFAFA] transition-colors focus:outline-none"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
                 <button
                   type="submit"
                   disabled={!passwordInput}
-                  className="btn-submit-password rounded-md bg-[#7C3AED] px-4 py-2 font-mono text-xs font-semibold text-white shadow-lg shadow-violet-600/25 hover:bg-[#6D28D9] disabled:opacity-50"
+                  className="btn-submit-password rounded-md bg-[#10B981] px-4 py-2 font-mono text-xs font-semibold text-white shadow-lg shadow-emerald-500/25 hover:bg-[#059669] disabled:opacity-50"
                 >
                   Decrypt
                 </button>
@@ -397,7 +414,7 @@ export function DecryptView({ fileId }) {
                   type="button"
                   onClick={downloadToDisk}
                   disabled={!fileBlob}
-                  className="btn-download-disk inline-flex items-center gap-2 rounded-lg bg-[#7C3AED] px-4 py-2.5 font-mono text-xs font-semibold text-white shadow-lg shadow-violet-600/25 hover:bg-[#6D28D9] disabled:opacity-50"
+                  className="btn-download-disk inline-flex items-center gap-2 rounded-lg bg-[#10B981] px-4 py-2.5 font-mono text-xs font-semibold text-white shadow-lg shadow-emerald-500/25 hover:bg-[#059669] disabled:opacity-50"
                 >
                   <Download className="h-4 w-4" />
                   <span>Download to Disk</span>
@@ -412,7 +429,7 @@ export function DecryptView({ fileId }) {
                       setShowDestroyPrompt((prev) => !prev);
                     }
                   }}
-                  className="btn-destroy-revoke inline-flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2.5 font-mono text-xs font-semibold text-red-400 hover:bg-red-500/20"
+                  className="btn-destroy-revoke inline-flex items-center gap-2 rounded-lg border border-red-500/50 bg-gradient-to-r from-red-600/20 to-red-900/30 px-4 py-2.5 font-mono text-xs font-semibold text-red-300 hover:from-red-600/30 hover:to-red-900/50 shadow-md shadow-red-900/30"
                 >
                   <Trash2 className="h-4 w-4" />
                   <span>Destroy / Revoke</span>
