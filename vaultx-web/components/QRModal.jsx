@@ -88,29 +88,29 @@ export function QRModal({ isOpen, onClose, shareUrl, url, title = 'Zero-Knowledg
             )}
           </div>
 
-          <div className="hud-well w-full rounded-lg border border-white/10 p-3">
-            <p className="mb-1 font-mono text-[11px] font-medium text-[#71717A]">Shareable Link</p>
-            <p className="break-all font-mono text-xs text-zinc-200 select-all">
+          <div className="hud-well w-full rounded-lg border border-zinc-200 p-3 dark:border-white/10">
+            <p className="mb-1 font-mono text-[11px] font-medium text-zinc-500 dark:text-[#71717A]">Shareable Link</p>
+            <p className="break-all font-mono text-xs text-zinc-900 dark:text-zinc-200 select-all">
               {targetUrl}
             </p>
           </div>
 
-          <div className="flex w-full items-start gap-2 rounded-lg border border-white/10 bg-white/5 p-2.5 text-xs text-[#A1A1AA]">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+          <div className="flex w-full items-start gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-2.5 text-xs text-zinc-700 dark:border-white/10 dark:bg-white/5 dark:text-[#A1A1AA]">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-blue-900 dark:text-emerald-400" />
             <span>
               The decryption key remains in the URL fragment (
-              <code className="rounded border border-white/10 bg-white/5 px-1 py-0.5 text-zinc-200">#key=...</code>
+              <code className="rounded border border-zinc-200 bg-zinc-100 px-1 py-0.5 text-zinc-800 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200">#key=...</code>
               ) and is never sent to the server.
             </span>
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-white/10 bg-[#07080B] px-5 py-3.5">
+        <div className="flex items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-5 py-3.5 dark:border-white/10 dark:bg-[#07080B]">
           <button
             type="button"
             onClick={handleCopy}
             disabled={!targetUrl}
-            className="btn-copy inline-flex items-center gap-1.5 rounded-md bg-[#10B981] px-4 py-2 font-mono text-xs font-semibold text-white shadow-lg shadow-emerald-500/25 hover:bg-[#059669] disabled:opacity-50"
+            className="btn-copy inline-flex items-center gap-1.5 rounded-md bg-zinc-900 px-4 py-2 font-mono text-xs font-semibold text-white shadow-md hover:bg-black dark:bg-[#10B981] dark:shadow-emerald-500/25 dark:hover:bg-[#059669] disabled:opacity-50 transition-colors"
           >
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             <span>{copied ? 'Copied' : 'Copy Link'}</span>
@@ -118,7 +118,7 @@ export function QRModal({ isOpen, onClose, shareUrl, url, title = 'Zero-Knowledg
           <button
             type="button"
             onClick={onClose}
-            className="btn-close rounded-md border border-white/10 bg-white/5 px-4 py-2 font-mono text-xs font-medium text-zinc-200 hover:bg-white/10"
+            className="btn-close rounded-md border border-zinc-300 bg-white px-4 py-2 font-mono text-xs font-medium text-zinc-800 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10 transition-colors"
           >
             Close
           </button>

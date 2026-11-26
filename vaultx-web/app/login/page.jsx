@@ -170,13 +170,13 @@ export default function LoginPage() {
                     autoComplete="email"
                     className={`hud-well w-full rounded-md border py-2 pl-10 pr-3 font-mono text-sm text-zinc-900 placeholder-zinc-400 transition-colors focus:outline-none dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
                       emailError
-                        ? 'border-red-500 focus:border-red-500 dark:border-red-500/60'
+                        ? 'border-blue-900 focus:border-blue-950 dark:border-red-500/60 dark:focus:border-red-500'
                         : 'border-zinc-300 focus:border-zinc-900 dark:border-white/10 dark:focus:border-[#10B981]'
                     }`}
                   />
                 </div>
                 {emailError && (
-                  <p className="mt-1 font-mono text-xs text-red-500 dark:text-red-400">{emailError}</p>
+                  <p className="mt-1 font-mono text-xs font-medium text-blue-950 dark:text-red-400">{emailError}</p>
                 )}
               </div>
 
@@ -207,7 +207,7 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     className={`hud-well w-full rounded-md border py-2 pl-10 pr-10 font-mono text-sm text-zinc-900 placeholder-zinc-400 transition-colors focus:outline-none dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
                       passwordError
-                        ? 'border-red-500 focus:border-red-500 dark:border-red-500/60'
+                        ? 'border-blue-900 focus:border-blue-950 dark:border-red-500/60 dark:focus:border-red-500'
                         : 'border-zinc-300 focus:border-zinc-900 dark:border-white/10 dark:focus:border-[#10B981]'
                     }`}
                   />
@@ -226,7 +226,7 @@ export default function LoginPage() {
                   </button>
                 </div>
                 {passwordError && (
-                  <p className="mt-1 font-mono text-xs text-red-500 dark:text-red-400">{passwordError}</p>
+                  <p className="mt-1 font-mono text-xs font-medium text-blue-950 dark:text-red-400">{passwordError}</p>
                 )}
               </div>
 
@@ -257,8 +257,8 @@ export default function LoginPage() {
 
               {/* ── Server Error ── */}
               {serverError && (
-                <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-500 dark:text-red-400">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="flex items-start gap-2 rounded-lg border border-blue-900/30 bg-blue-50/80 p-3 text-xs text-blue-950 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-900 dark:text-red-400" />
                   <span>{serverError}</span>
                 </div>
               )}

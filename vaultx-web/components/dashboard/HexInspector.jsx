@@ -153,7 +153,7 @@ export function HexInspector({
                 className="text-zinc-500 hover:text-zinc-900 dark:text-[#71717A] dark:hover:text-zinc-200 p-0.5 rounded"
                 title="Copy IV"
               >
-                {copiedIv ? <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                {copiedIv ? <Check className="h-3 w-3 text-blue-900 dark:text-emerald-400" /> : <Copy className="h-3 w-3" />}
               </button>
             </div>
             <div className="flex items-center justify-between">

@@ -429,9 +429,9 @@ export function DecryptView({ fileId }) {
                       setShowDestroyPrompt((prev) => !prev);
                     }
                   }}
-                  className="btn-destroy-revoke inline-flex items-center gap-2 rounded-lg border border-red-500/60 bg-red-500/10 px-4 py-2.5 font-mono text-xs font-semibold text-red-600 hover:bg-red-500/20 dark:border-red-500/50 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-900/50 transition-colors shadow-sm"
+                  className="btn-destroy-revoke inline-flex items-center gap-2 rounded-lg border border-blue-900/40 bg-blue-50/90 px-4 py-2.5 font-mono text-xs font-bold text-blue-950 shadow-sm transition-colors hover:bg-blue-100 dark:border-red-500/60 dark:bg-red-950/70 dark:text-red-200 dark:hover:bg-red-900/60 dark:hover:text-red-100"
                 >
-                  <Trash2 className="h-4 w-4 text-red-600 dark:text-red-300" />
+                  <Trash2 className="h-4 w-4 text-blue-900 dark:text-red-400" />
                   <span>Destroy / Revoke</span>
                 </button>
               </div>
