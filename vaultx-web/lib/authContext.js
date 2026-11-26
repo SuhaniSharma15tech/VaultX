@@ -1,46 +1,36 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { registerAuth, loginAuth } from './api.js';
-import { generateUserKeyPair } from './vaultCrypto.js';
-import { storeUserKey } from './keyStore.js';
+import { webLogin, webRegister } from './api.js';
 
 /**
  * VaultX Auth Context
- * Authenticates against the backend (/api/auth/register, /api/auth/login)
- * and persists the session to localStorage.
- * Falls back to local demo accounts only when NEXT_PUBLIC_MOCK_BACKEND === 'true'.
+ * Connects to backend auth endpoints with offline mock fallback.
+ * Persists session to localStorage and isolates per-user cached state.
  */
 
 const STORAGE_KEY = 'vaultx_auth_session';
-const USERS_STORAGE_KEY = 'vaultx_registered_users';
-const FORCE_MOCK = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_MOCK_BACKEND === 'true';
 
-// Pre-seeded demo accounts for mock login
-const MOCK_ACCOUNTS = [
-  { email: 'admin@vaultx.io', password: 'admin123', name: 'Admin' },
-  { email: 'alice@vaultx.io', password: 'alice123', name: 'Alice' },
-  { email: 'demo@vaultx.io', password: 'demo1234', name: 'Demo User' },
-];
+export function getUserVaultStorageKey(session) {
+  if (!session) return 'vaultx_sent_vaults';
+  const ownerKey = session.id || session.email || 'guest';
+  return `vaultx_sent_vaults_${ownerKey}`;
+}
 
-function getRegisteredUsers() {
-  if (typeof window === 'undefined' || !window.localStorage) return [];
+function clearLegacyUnscopedCaches() {
+  if (typeof window === 'undefined' || !window.localStorage) return;
   try {
-    const raw = window.localStorage.getItem(USERS_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (_) {
-    return [];
-  }
+    window.localStorage.removeItem('vaultx_sent_vaults');
+    window.localStorage.removeItem('vaultx_history');
+  } catch (_) {}
 }
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true); // initial hydration
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Hydrate from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
@@ -56,54 +46,21 @@ export function AuthProvider({ children }) {
     setIsLoading(false);
   }, []);
 
-  /**
-   * Sign-in via backend /api/auth/login (or mock accounts when FORCE_MOCK is enabled).
-   * Returns { success, user?, error? }
-   */
   const signIn = useCallback(async ({ email, password, remember = false }) => {
-    const normalEmail = email.trim().toLowerCase();
-
-    if (FORCE_MOCK) {
-      await new Promise((r) => setTimeout(r, 900 + Math.random() * 600));
-      const allAccounts = [...MOCK_ACCOUNTS, ...getRegisteredUsers()];
-      const matched = allAccounts.find(
-        (a) => a.email === normalEmail && a.password === password
-      );
-      const isUniversal = password === 'vaultx';
-
-      if (!matched && !isUniversal) {
-        return { success: false, error: 'Invalid email or password. Try demo@vaultx.io / demo1234' };
-      }
-
-      const session = {
-        email: normalEmail,
-        name: matched?.name || normalEmail.split('@')[0],
-        loginAt: new Date().toISOString(),
-        remember,
-      };
-      setUser(session);
-      if (typeof window !== 'undefined' && window.localStorage) {
-        try {
-          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-        } catch (_) {}
-      }
-      return { success: true, user: session };
-    }
-
     try {
-      const data = await loginAuth({ email: normalEmail, password });
+      const res = await webLogin({ email, password });
       const session = {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.displayName || data.user.email.split('@')[0],
-        publicKey: data.user.publicKey,
-        publicKeyFingerprint: data.user.publicKeyFingerprint,
-        token: data.token,
+        id: res.user.id,
+        email: res.user.email,
+        name: res.user.name,
+        token: res.token || null,
         loginAt: new Date().toISOString(),
         remember,
       };
 
+      clearLegacyUnscopedCaches();
       setUser(session);
+
       if (typeof window !== 'undefined' && window.localStorage) {
         try {
           window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
@@ -112,74 +69,30 @@ export function AuthProvider({ children }) {
 
       return { success: true, user: session };
     } catch (err) {
-      return { success: false, error: err?.message || 'Invalid email or password' };
+      const code = err?.data?.code || (err?.status === 404 ? 'USER_NOT_FOUND' : 'AUTH_ERROR');
+      return {
+        success: false,
+        code,
+        error: err.message || 'Authentication failed',
+      };
     }
   }, []);
 
-  /**
-   * Sign-up via backend /api/auth/register (or localStorage when FORCE_MOCK is enabled).
-   * Generates the user's RSA-OAEP keypair, registers in Supabase DB, and signs in.
-   */
   const signUp = useCallback(async ({ name, email, password }) => {
-    const cleanName = name.trim();
-    const normalEmail = email.trim().toLowerCase();
-
-    if (FORCE_MOCK) {
-      await new Promise((r) => setTimeout(r, 800 + Math.random() * 400));
-      const existing = [...MOCK_ACCOUNTS, ...getRegisteredUsers()].find(
-        (a) => a.email === normalEmail
-      );
-      if (existing) {
-        return { success: false, error: 'An account with this email already exists.' };
-      }
-
-      const newAccount = { name: cleanName, email: normalEmail, password };
-      if (typeof window !== 'undefined' && window.localStorage) {
-        try {
-          const updatedUsers = [...getRegisteredUsers(), newAccount];
-          window.localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-        } catch (_) {}
-      }
-
-      const session = {
-        email: normalEmail,
-        name: cleanName,
-        loginAt: new Date().toISOString(),
-        remember: true,
-      };
-      setUser(session);
-      if (typeof window !== 'undefined' && window.localStorage) {
-        try {
-          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-        } catch (_) {}
-      }
-      return { success: true, user: session };
-    }
-
     try {
-      const { keyPair, publicKeyPem, keyFingerprint } = await generateUserKeyPair();
-      const data = await registerAuth({
-        email: normalEmail,
-        displayName: cleanName || undefined,
-        password,
-        publicKey: publicKeyPem,
-        publicKeyFingerprint: keyFingerprint,
-      });
-
-      await storeUserKey(normalEmail, keyPair, publicKeyPem, keyFingerprint).catch(() => {});
-
+      const res = await webRegister({ name, email, password });
       const session = {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.displayName || cleanName || data.user.email.split('@')[0],
-        publicKey: data.user.publicKey,
-        publicKeyFingerprint: data.user.publicKeyFingerprint,
-        token: data.token,
+        id: res.user.id,
+        email: res.user.email,
+        name: res.user.name,
+        token: res.token || null,
         loginAt: new Date().toISOString(),
         remember: true,
       };
 
+      clearLegacyUnscopedCaches();
       setUser(session);
+
       if (typeof window !== 'undefined' && window.localStorage) {
         try {
           window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
@@ -188,15 +101,18 @@ export function AuthProvider({ children }) {
 
       return { success: true, user: session };
     } catch (err) {
-      return { success: false, error: err?.message || 'Registration failed' };
+      return {
+        success: false,
+        code: err?.data?.code || 'REGISTER_ERROR',
+        error: err.message || 'Registration failed',
+      };
     }
   }, []);
 
-  /**
-   * Guest access — no credentials needed.
-   */
   const continueAsGuest = useCallback(() => {
+    clearLegacyUnscopedCaches();
     const session = {
+      id: 'guest',
       email: 'guest',
       name: 'Guest',
       isGuest: true,
@@ -211,6 +127,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signOut = useCallback(() => {
+    clearLegacyUnscopedCaches();
     setUser(null);
     if (typeof window !== 'undefined' && window.localStorage) {
       try {

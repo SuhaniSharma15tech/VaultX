@@ -220,10 +220,23 @@ export function useUpload() {
         sha256Checksum: cryptoResult.sha256Checksum
       };
 
-      // 9. Persist audit record in localStorage for sender dashboard history
+      // 9. Persist audit record in localStorage (scoped to active user when authenticated)
+      let activeSession = null;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        try {
+          const rawSession = window.localStorage.getItem('vaultx_auth_session');
+          if (rawSession) {
+            const parsed = JSON.parse(rawSession);
+            if (parsed?.email) activeSession = parsed;
+          }
+        } catch (_) {}
+      }
+
+      const ownerKey = activeSession ? (activeSession.id || activeSession.email || 'guest') : null;
       const sentRecord = {
         id: apiRes.fileId,
         fileId: apiRes.fileId,
+        ownerId: ownerKey,
         filename: metaObj.filename,
         createdAt: new Date().toISOString(),
         expiresAt: apiRes.expiresAt,
@@ -235,15 +248,18 @@ export function useUpload() {
 
       if (typeof window !== 'undefined' && window.localStorage) {
         try {
-          const rawSent = window.localStorage.getItem('vaultx_sent_vaults');
+          const storageKey = ownerKey ? `vaultx_sent_vaults_${ownerKey}` : 'vaultx_sent_vaults';
+          const rawSent = window.localStorage.getItem(storageKey);
           const sentList = rawSent ? JSON.parse(rawSent) : [];
           sentList.unshift(sentRecord);
-          window.localStorage.setItem('vaultx_sent_vaults', JSON.stringify(sentList));
+          window.localStorage.setItem(storageKey, JSON.stringify(sentList));
 
-          const rawHist = window.localStorage.getItem('vaultx_history');
-          const histList = rawHist ? JSON.parse(rawHist) : [];
-          histList.unshift(sentRecord);
-          window.localStorage.setItem('vaultx_history', JSON.stringify(histList));
+          if (!ownerKey) {
+            const rawHist = window.localStorage.getItem('vaultx_history');
+            const histList = rawHist ? JSON.parse(rawHist) : [];
+            histList.unshift(sentRecord);
+            window.localStorage.setItem('vaultx_history', JSON.stringify(histList));
+          }
         } catch (_) {
           // Ignore localStorage errors
         }

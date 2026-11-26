@@ -12,19 +12,20 @@ import {
   LogIn,
   AlertCircle,
   Loader2,
-  UserRound,
 } from 'lucide-react';
 import { TerminalWindow } from '../../components/TerminalWindow.jsx';
+import { ThemeToggle } from '../../components/ThemeToggle.jsx';
 import { useAuth } from '../../lib/authContext.js';
 
 /**
  * LoginPage (/login)
- * VaultX authentication gate — Obsidian Black + Cyber Green + Tactical Crimson
- * design language matching the existing upload and dashboard pages.
+ * VaultX authentication gate for senders.
+ * - Dark: Pitch-black, Cyber Green, Tactical Crimson
+ * - Light: Clean White, Charcoal, Deep Navy/Slate
  */
 export default function LoginPage() {
   const router = useRouter();
-  const { user, signIn, continueAsGuest } = useAuth();
+  const { user, signIn } = useAuth();
 
   // ── form state ──
   const [email, setEmail] = useState('');
@@ -43,7 +44,7 @@ export default function LoginPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      router.replace('/dashboard');
+      router.replace('/');
     }
   }, [user, router]);
 
@@ -79,7 +80,9 @@ export default function LoginPage() {
     try {
       const result = await signIn({ email, password, remember: rememberMe });
       if (result.success) {
-        router.push('/dashboard');
+        router.push('/');
+      } else if (result.code === 'USER_NOT_FOUND') {
+        router.push(`/signup?email=${encodeURIComponent(email.trim())}`);
       } else {
         setServerError(result.error || 'Authentication failed');
       }
@@ -90,25 +93,19 @@ export default function LoginPage() {
     }
   };
 
-  // ── guest shortcut ──
-  const handleGuest = () => {
-    continueAsGuest();
-    router.push('/dashboard');
-  };
-
   // Don't flash the form while redirecting
   if (user) return null;
 
   return (
-    <div className="relative min-h-screen text-[#FAFAFA]">
-      {/* ── Header (same pattern as home / dashboard) ── */}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050508]/85 backdrop-blur-xl">
+    <div className="relative min-h-screen text-zinc-900 dark:text-[#FAFAFA] transition-colors duration-150">
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/85 dark:border-white/10 dark:bg-[#050508]/85 backdrop-blur-xl transition-colors duration-150">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <Link href="/" className="group flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/40 bg-red-500/10 transition-colors group-hover:border-red-500/60">
-              <Shield className="h-4 w-4 text-[#EF4444]" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-900 bg-zinc-900 text-white dark:border-red-500/40 dark:bg-red-500/10 dark:text-[#EF4444] transition-colors group-hover:opacity-90">
+              <Shield className="h-4 w-4" />
             </div>
-            <span className="text-base font-bold tracking-tight text-[#FAFAFA]">
+            <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-[#FAFAFA]">
               VAULTX
             </span>
           </Link>
@@ -116,10 +113,11 @@ export default function LoginPage() {
           <nav className="flex items-center gap-2">
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:border-white/20 hover:bg-white/10"
+              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-white/10"
             >
               Home
             </Link>
+            <ThemeToggle />
           </nav>
         </div>
       </header>
@@ -128,15 +126,15 @@ export default function LoginPage() {
       <main className="relative z-10 mx-auto flex max-w-md flex-col items-center px-4 pt-12 pb-16 sm:pt-16">
         {/* Logo / branding mark */}
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-red-500/40 bg-red-500/10 shadow-[0_0_30px_-8px_rgba(239,68,68,0.3)]">
-            <Shield className="h-7 w-7 text-[#EF4444]" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-300 bg-zinc-100 text-zinc-900 dark:border-red-500/40 dark:bg-red-500/10 dark:text-[#EF4444] shadow-md dark:shadow-[0_0_30px_-8px_rgba(239,68,68,0.3)]">
+            <Shield className="h-7 w-7" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#FAFAFA] sm:text-3xl">
-              Sign In to VaultX
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-[#FAFAFA] sm:text-3xl">
+              Sender Sign In
             </h1>
-            <p className="mt-1.5 text-sm text-[#A1A1AA]">
-              Access your zero-knowledge encrypted vaults
+            <p className="mt-1.5 text-sm text-zinc-600 dark:text-[#A1A1AA]">
+              A VaultX account is required to encrypt and share files
             </p>
           </div>
         </div>
@@ -149,12 +147,12 @@ export default function LoginPage() {
               <div>
                 <label
                   htmlFor="vaultx-login-email"
-                  className="mb-1.5 block font-mono text-xs font-medium text-[#71717A]"
+                  className="mb-1.5 block font-mono text-xs font-medium text-zinc-600 dark:text-[#71717A]"
                 >
                   Email Address
                 </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71717A]">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-[#71717A]">
                     <Mail className="h-4 w-4" />
                   </span>
                   <input
@@ -170,15 +168,15 @@ export default function LoginPage() {
                     disabled={isSubmitting}
                     placeholder="you@example.com"
                     autoComplete="email"
-                    className={`hud-well w-full rounded-md border py-2 pl-10 pr-3 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] transition-colors focus:outline-none ${
+                    className={`hud-well w-full rounded-md border py-2 pl-10 pr-3 font-mono text-sm text-zinc-900 placeholder-zinc-400 transition-colors focus:outline-none dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
                       emailError
-                        ? 'border-red-500/60 focus:border-red-500'
-                        : 'border-white/10 focus:border-[#10B981]'
+                        ? 'border-red-500 focus:border-red-500 dark:border-red-500/60'
+                        : 'border-zinc-300 focus:border-zinc-900 dark:border-white/10 dark:focus:border-[#10B981]'
                     }`}
                   />
                 </div>
                 {emailError && (
-                  <p className="mt-1 font-mono text-xs text-red-400">{emailError}</p>
+                  <p className="mt-1 font-mono text-xs text-red-500 dark:text-red-400">{emailError}</p>
                 )}
               </div>
 
@@ -186,12 +184,12 @@ export default function LoginPage() {
               <div>
                 <label
                   htmlFor="vaultx-login-password"
-                  className="mb-1.5 block font-mono text-xs font-medium text-[#71717A]"
+                  className="mb-1.5 block font-mono text-xs font-medium text-zinc-600 dark:text-[#71717A]"
                 >
                   Password
                 </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71717A]">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-[#71717A]">
                     <Lock className="h-4 w-4" />
                   </span>
                   <input
@@ -207,17 +205,17 @@ export default function LoginPage() {
                     disabled={isSubmitting}
                     placeholder="Enter your password"
                     autoComplete="current-password"
-                    className={`hud-well w-full rounded-md border py-2 pl-10 pr-10 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] transition-colors focus:outline-none ${
+                    className={`hud-well w-full rounded-md border py-2 pl-10 pr-10 font-mono text-sm text-zinc-900 placeholder-zinc-400 transition-colors focus:outline-none dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
                       passwordError
-                        ? 'border-red-500/60 focus:border-red-500'
-                        : 'border-white/10 focus:border-[#10B981]'
+                        ? 'border-red-500 focus:border-red-500 dark:border-red-500/60'
+                        : 'border-zinc-300 focus:border-zinc-900 dark:border-white/10 dark:focus:border-[#10B981]'
                     }`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isSubmitting}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#71717A] transition-colors hover:text-[#FAFAFA] focus:outline-none"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 transition-colors hover:text-zinc-900 dark:text-[#71717A] dark:hover:text-[#FAFAFA] focus:outline-none"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? (
@@ -228,28 +226,28 @@ export default function LoginPage() {
                   </button>
                 </div>
                 {passwordError && (
-                  <p className="mt-1 font-mono text-xs text-red-400">{passwordError}</p>
+                  <p className="mt-1 font-mono text-xs text-red-500 dark:text-red-400">{passwordError}</p>
                 )}
               </div>
 
               {/* ── Remember Me / Forgot Password ── */}
               <div className="flex items-center justify-between">
-                <label className="flex cursor-pointer items-center gap-2 text-xs text-[#A1A1AA]">
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-[#A1A1AA]">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                     disabled={isSubmitting}
-                    className="h-3.5 w-3.5 rounded border-white/20 bg-[#050508] accent-[#10B981]"
+                    className="h-3.5 w-3.5 rounded border-zinc-300 accent-zinc-900 dark:border-white/20 dark:bg-[#050508] dark:accent-[#10B981]"
                   />
                   <span>Remember me</span>
                 </label>
                 <button
                   type="button"
-                  className="font-mono text-xs font-medium text-[#10B981] transition-colors hover:text-[#4ADE80]"
+                  className="font-mono text-xs font-medium text-zinc-700 hover:text-black dark:text-[#10B981] dark:hover:text-[#4ADE80] transition-colors"
                   onClick={() =>
                     alert(
-                      'Password reset is not available in this demo.\n\nTry: demo@vaultx.io / demo1234'
+                      'Password reset demo:\n\nUse demo@vaultx.io / demo1234'
                     )
                   }
                 >
@@ -259,7 +257,7 @@ export default function LoginPage() {
 
               {/* ── Server Error ── */}
               {serverError && (
-                <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
+                <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-500 dark:text-red-400">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{serverError}</span>
                 </div>
@@ -269,7 +267,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#10B981] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-lg shadow-emerald-500/25 transition-all hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-900 text-white hover:bg-black shadow-md dark:bg-[#10B981] dark:shadow-emerald-500/25 dark:hover:bg-[#059669] px-5 py-3 font-mono text-sm font-semibold tracking-wide transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
               >
                 {isSubmitting ? (
                   <>
@@ -284,41 +282,42 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
-
-            {/* ── Divider ── */}
-            <div className="my-5 flex items-center gap-3">
-              <div className="h-px flex-1 bg-white/10" />
-              <span className="font-mono text-[10px] uppercase tracking-widest text-[#71717A]">
-                or
-              </span>
-              <div className="h-px flex-1 bg-white/10" />
-            </div>
-
-            {/* ── Continue as Guest ── */}
-            <button
-              type="button"
-              onClick={handleGuest}
-              disabled={isSubmitting}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-5 py-2.5 font-mono text-xs font-semibold text-zinc-200 transition-colors hover:border-white/20 hover:bg-white/10"
-            >
-              <UserRound className="h-4 w-4 text-[#A1A1AA]" />
-              <span>Continue as Guest</span>
-            </button>
           </div>
 
-          {/* ── Footer — Sign Up link ── */}
-          <div className="border-t border-white/10 bg-[#07080B] px-5 py-3.5 text-center">
-            <p className="text-xs text-[#A1A1AA]">
+          {/* ── Footer ── */}
+          <div className="border-t border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-[#07080B] px-5 py-3.5 text-center">
+            <p className="text-xs text-zinc-600 dark:text-[#A1A1AA]">
               Don&apos;t have an account?{' '}
               <Link
                 href="/signup"
-                className="font-mono font-medium text-[#10B981] transition-colors hover:text-[#4ADE80]"
+                className="font-mono font-medium text-zinc-900 underline hover:text-black dark:text-[#10B981] dark:hover:text-[#4ADE80] transition-colors"
               >
                 Sign Up
               </Link>
             </p>
           </div>
         </TerminalWindow>
+
+        {/* ── Demo credentials hint ── */}
+        <div className="mt-5 w-full rounded-xl border border-zinc-200 bg-white/95 p-3.5 backdrop-blur-xl shadow-md dark:border-white/10 dark:bg-[#0B0C10]/80">
+          <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-[#71717A]">
+            Demo Platform Credentials
+          </p>
+          <div className="space-y-1 font-mono text-[11px]">
+            <div className="flex justify-between">
+              <span className="text-zinc-500 dark:text-[#71717A]">EMAIL:</span>
+              <span className="text-zinc-900 dark:text-[#FAFAFA]">demo@vaultx.io</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-zinc-500 dark:text-[#71717A]">PASSWORD:</span>
+              <span className="text-zinc-700 dark:text-[#A1A1AA]">demo1234</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-zinc-500 dark:text-[#71717A]">UNIVERSAL:</span>
+              <span className="text-zinc-700 dark:text-[#A1A1AA]">vaultx</span>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );

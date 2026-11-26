@@ -15,6 +15,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { TerminalWindow } from '../../components/TerminalWindow.jsx';
+import { ThemeToggle } from '../../components/ThemeToggle.jsx';
 import { useAuth } from '../../lib/authContext.js';
 
 /**
@@ -43,10 +44,22 @@ export default function SignUpPage() {
   // ── async state ──
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
+  const [redirectNotice, setRedirectNotice] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const prefillEmail = params.get('email');
+      if (prefillEmail) {
+        setEmail(prefillEmail);
+        setRedirectNotice(true);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (user) {
-      router.replace('/dashboard');
+      router.replace('/');
     }
   }, [user, router]);
 
@@ -110,15 +123,15 @@ export default function SignUpPage() {
   if (user) return null;
 
   return (
-    <div className="relative min-h-screen text-[#FAFAFA]">
+    <div className="relative min-h-screen text-zinc-900 dark:text-[#FAFAFA] transition-colors duration-150">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050508]/85 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/85 dark:border-white/10 dark:bg-[#050508]/85 backdrop-blur-xl transition-colors duration-150">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <Link href="/" className="group flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/40 bg-red-500/10 transition-colors group-hover:border-red-500/60">
-              <Shield className="h-4 w-4 text-[#EF4444]" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-900 bg-zinc-900 text-white dark:border-red-500/40 dark:bg-red-500/10 dark:text-[#EF4444] transition-colors group-hover:opacity-90">
+              <Shield className="h-4 w-4" />
             </div>
-            <span className="text-base font-bold tracking-tight text-[#FAFAFA]">
+            <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-[#FAFAFA]">
               VAULTX
             </span>
           </Link>
@@ -126,25 +139,26 @@ export default function SignUpPage() {
           <nav className="flex items-center gap-2">
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:border-white/20 hover:bg-white/10"
+              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-white/10"
             >
               Home
             </Link>
+            <ThemeToggle />
           </nav>
         </div>
       </header>
 
       {/* ── Main ── */}
-      <main className="relative z-10 mx-auto flex max-w-md flex-col items-center px-4 pt-12 pb-16 sm:pt-16">
+      <main className="relative z-10 mx-auto flex max-w-md flex-col items-center px-4 pt-10 pb-16 sm:pt-14">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-red-500/40 bg-red-500/10 shadow-[0_0_30px_-8px_rgba(239,68,68,0.3)]">
-            <Shield className="h-7 w-7 text-[#EF4444]" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-900 bg-zinc-900 text-white dark:border-red-500/40 dark:bg-red-500/10 dark:text-[#EF4444] shadow-md dark:shadow-[0_0_30px_-8px_rgba(239,68,68,0.3)]">
+            <Shield className="h-7 w-7" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#FAFAFA] sm:text-3xl">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-[#FAFAFA] sm:text-3xl">
               Create VaultX Account
             </h1>
-            <p className="mt-1.5 text-sm text-[#A1A1AA]">
+            <p className="mt-1.5 text-sm text-zinc-600 dark:text-[#A1A1AA]">
               Set up your zero-knowledge encrypted workspace
             </p>
           </div>
@@ -153,17 +167,23 @@ export default function SignUpPage() {
         {/* ── Registration Card ── */}
         <TerminalWindow className="w-full">
           <div className="p-5 sm:p-6">
+            {redirectNotice && (
+              <div className="mb-4 flex items-start gap-2 rounded-lg border border-[#10B981]/40 bg-[#10B981]/10 p-3 text-xs text-emerald-300">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
+                <span>No account found for that email. Create your VaultX account below.</span>
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               {/* ── Name ── */}
               <div>
                 <label
                   htmlFor="vaultx-signup-name"
-                  className="mb-1.5 block font-mono text-xs font-medium text-[#71717A]"
+                  className="mb-1.5 block font-mono text-xs font-medium text-zinc-700 dark:text-[#71717A]"
                 >
                   Full Name
                 </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71717A]">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-[#71717A]">
                     <User className="h-4 w-4" />
                   </span>
                   <input
@@ -179,15 +199,15 @@ export default function SignUpPage() {
                     disabled={isSubmitting}
                     placeholder="Alex Mercer"
                     autoComplete="name"
-                    className={`hud-well w-full rounded-md border py-2 pl-10 pr-3 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] transition-colors focus:outline-none ${
+                    className={`w-full rounded-md border py-2 pl-10 pr-3 font-mono text-sm transition-colors focus:outline-none border-zinc-300 bg-white text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 dark:hud-well dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
                       nameError
-                        ? 'border-red-500/60 focus:border-red-500'
-                        : 'border-white/10 focus:border-[#10B981]'
+                        ? '!border-red-500/60 focus:!border-red-500'
+                        : 'dark:border-white/10 dark:focus:border-[#10B981]'
                     }`}
                   />
                 </div>
                 {nameError && (
-                  <p className="mt-1 font-mono text-xs text-red-400">{nameError}</p>
+                  <p className="mt-1 font-mono text-xs text-red-500 dark:text-red-400">{nameError}</p>
                 )}
               </div>
 
@@ -195,12 +215,12 @@ export default function SignUpPage() {
               <div>
                 <label
                   htmlFor="vaultx-signup-email"
-                  className="mb-1.5 block font-mono text-xs font-medium text-[#71717A]"
+                  className="mb-1.5 block font-mono text-xs font-medium text-zinc-700 dark:text-[#71717A]"
                 >
                   Email Address
                 </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71717A]">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-[#71717A]">
                     <Mail className="h-4 w-4" />
                   </span>
                   <input
@@ -216,15 +236,15 @@ export default function SignUpPage() {
                     disabled={isSubmitting}
                     placeholder="you@example.com"
                     autoComplete="email"
-                    className={`hud-well w-full rounded-md border py-2 pl-10 pr-3 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] transition-colors focus:outline-none ${
+                    className={`w-full rounded-md border py-2 pl-10 pr-3 font-mono text-sm transition-colors focus:outline-none border-zinc-300 bg-white text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 dark:hud-well dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
                       emailError
-                        ? 'border-red-500/60 focus:border-red-500'
-                        : 'border-white/10 focus:border-[#10B981]'
+                        ? '!border-red-500/60 focus:!border-red-500'
+                        : 'dark:border-white/10 dark:focus:border-[#10B981]'
                     }`}
                   />
                 </div>
                 {emailError && (
-                  <p className="mt-1 font-mono text-xs text-red-400">{emailError}</p>
+                  <p className="mt-1 font-mono text-xs text-red-500 dark:text-red-400">{emailError}</p>
                 )}
               </div>
 
@@ -232,12 +252,12 @@ export default function SignUpPage() {
               <div>
                 <label
                   htmlFor="vaultx-signup-password"
-                  className="mb-1.5 block font-mono text-xs font-medium text-[#71717A]"
+                  className="mb-1.5 block font-mono text-xs font-medium text-zinc-700 dark:text-[#71717A]"
                 >
                   Password
                 </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71717A]">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-[#71717A]">
                     <Lock className="h-4 w-4" />
                   </span>
                   <input
@@ -258,17 +278,17 @@ export default function SignUpPage() {
                     disabled={isSubmitting}
                     placeholder="At least 8 characters"
                     autoComplete="new-password"
-                    className={`hud-well w-full rounded-md border py-2 pl-10 pr-10 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] transition-colors focus:outline-none ${
+                    className={`w-full rounded-md border py-2 pl-10 pr-10 font-mono text-sm transition-colors focus:outline-none border-zinc-300 bg-white text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 dark:hud-well dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
                       passwordError
-                        ? 'border-red-500/60 focus:border-red-500'
-                        : 'border-white/10 focus:border-[#10B981]'
+                        ? '!border-red-500/60 focus:!border-red-500'
+                        : 'dark:border-white/10 dark:focus:border-[#10B981]'
                     }`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isSubmitting}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#71717A] transition-colors hover:text-[#FAFAFA] focus:outline-none"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-900 dark:text-[#71717A] dark:hover:text-[#FAFAFA] transition-colors focus:outline-none"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? (
@@ -279,7 +299,7 @@ export default function SignUpPage() {
                   </button>
                 </div>
                 {passwordError && (
-                  <p className="mt-1 font-mono text-xs text-red-400">{passwordError}</p>
+                  <p className="mt-1 font-mono text-xs text-red-500 dark:text-red-400">{passwordError}</p>
                 )}
               </div>
 
@@ -287,12 +307,12 @@ export default function SignUpPage() {
               <div>
                 <label
                   htmlFor="vaultx-signup-confirm"
-                  className="mb-1.5 block font-mono text-xs font-medium text-[#71717A]"
+                  className="mb-1.5 block font-mono text-xs font-medium text-zinc-700 dark:text-[#71717A]"
                 >
                   Confirm Password
                 </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71717A]">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 dark:text-[#71717A]">
                     <Lock className="h-4 w-4" />
                   </span>
                   <input
@@ -310,17 +330,17 @@ export default function SignUpPage() {
                     disabled={isSubmitting}
                     placeholder="Re-enter your password"
                     autoComplete="new-password"
-                    className={`hud-well w-full rounded-md border py-2 pl-10 pr-10 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] transition-colors focus:outline-none ${
+                    className={`w-full rounded-md border py-2 pl-10 pr-10 font-mono text-sm transition-colors focus:outline-none border-zinc-300 bg-white text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 dark:hud-well dark:text-[#FAFAFA] dark:placeholder-[#71717A] ${
                       confirmPasswordError
-                        ? 'border-red-500/60 focus:border-red-500'
-                        : 'border-white/10 focus:border-[#10B981]'
+                        ? '!border-red-500/60 focus:!border-red-500'
+                        : 'dark:border-white/10 dark:focus:border-[#10B981]'
                     }`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     disabled={isSubmitting}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#71717A] transition-colors hover:text-[#FAFAFA] focus:outline-none"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-900 dark:text-[#71717A] dark:hover:text-[#FAFAFA] transition-colors focus:outline-none"
                     aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
                   >
                     {showConfirmPassword ? (
@@ -331,13 +351,13 @@ export default function SignUpPage() {
                   </button>
                 </div>
                 {confirmPasswordError && (
-                  <p className="mt-1 font-mono text-xs text-red-400">{confirmPasswordError}</p>
+                  <p className="mt-1 font-mono text-xs text-red-500 dark:text-red-400">{confirmPasswordError}</p>
                 )}
               </div>
 
               {/* ── Server Error ── */}
               {serverError && (
-                <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
+                <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-500 dark:text-red-400">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{serverError}</span>
                 </div>
@@ -347,7 +367,7 @@ export default function SignUpPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#10B981] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-lg shadow-emerald-500/25 transition-all hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-900 text-white hover:bg-black shadow-md dark:bg-[#10B981] dark:shadow-emerald-500/25 dark:hover:bg-[#059669] px-5 py-3 font-mono text-sm font-semibold tracking-wide transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
               >
                 {isSubmitting ? (
                   <>
@@ -365,12 +385,12 @@ export default function SignUpPage() {
           </div>
 
           {/* ── Footer — Sign In link ── */}
-          <div className="border-t border-white/10 bg-[#07080B] px-5 py-3.5 text-center">
-            <p className="text-xs text-[#A1A1AA]">
+          <div className="border-t border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-[#07080B] px-5 py-3.5 text-center">
+            <p className="text-xs text-zinc-600 dark:text-[#A1A1AA]">
               Already have an account?{' '}
               <Link
                 href="/login"
-                className="font-mono font-medium text-[#10B981] transition-colors hover:text-[#4ADE80]"
+                className="font-mono font-medium text-zinc-900 underline hover:text-black dark:text-[#10B981] dark:hover:text-[#4ADE80] transition-colors"
               >
                 Sign In
               </Link>

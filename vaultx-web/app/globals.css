@@ -2,19 +2,123 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Local Redaction Font Faces (Light Theme Universal) */
+@font-face {
+  font-family: 'Redaction';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/redaction-latin-400-normal.woff2') format('woff2'),
+       url('/fonts/redaction-latin-400-normal.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Redaction';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/redaction-latin-400-italic.woff2') format('woff2'),
+       url('/fonts/redaction-latin-400-italic.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Redaction';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/redaction-latin-700-normal.woff2') format('woff2'),
+       url('/fonts/redaction-latin-700-normal.woff') format('woff');
+}
+
+/* Local Marcellus Font Faces (Dark Theme Universal) */
+@font-face {
+  font-family: 'Marcellus';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/marcellus-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Marcellus';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/marcellus-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light;
+    font-family: 'Redaction', serif, system-ui, sans-serif;
   }
+
+  html.dark {
+    color-scheme: dark;
+    font-family: 'Marcellus', serif, system-ui, sans-serif;
+  }
+
+  /* Smooth cross-fade transition during theme toggling */
+  html.theme-transitioning,
+  html.theme-transitioning *,
+  html.theme-transitioning *::before,
+  html.theme-transitioning *::after {
+    transition: background-color 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                color 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                fill 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                stroke 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition-delay: 0s !important;
+  }
+
   body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Redaction', serif, system-ui, sans-serif;
+    background-color: #FFFFFF;
+    color: #18181B;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  html.dark body {
+    font-family: 'Marcellus', serif, system-ui, sans-serif;
     background-color: #050508;
     color: #FAFAFA;
   }
-  code, kbd, samp, pre {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* Universal typography override: Redaction for light, Marcellus for dark */
+  *,
+  button,
+  input,
+  select,
+  textarea,
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: 'Redaction', serif, system-ui, sans-serif;
   }
+
+  html.dark *,
+  html.dark button,
+  html.dark input,
+  html.dark select,
+  html.dark textarea,
+  html.dark code,
+  html.dark kbd,
+  html.dark samp,
+  html.dark pre {
+    font-family: 'Marcellus', serif, system-ui, sans-serif;
+  }
+
   select option {
+    background-color: #FFFFFF;
+    color: #0F172A;
+    font-family: 'Marcellus', serif, system-ui, sans-serif;
+  }
+
+  html.dark select option {
     background-color: #0B0C10;
     color: #FAFAFA;
   }
@@ -22,15 +126,25 @@
 
 @layer components {
   .cyber-scene-bg {
+    background-color: #FFFFFF;
+  }
+
+  html.dark .cyber-scene-bg {
     background-color: #050508;
   }
 
   .cyber-canvas-grid {
     background-image:
-      linear-gradient(to right, rgba(16, 185, 129, 0.08) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(239, 68, 68, 0.08) 1px, transparent 1px);
+      linear-gradient(to right, rgba(24, 24, 27, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(24, 24, 27, 0.05) 1px, transparent 1px);
     background-size: 40px 40px;
     mask-image: radial-gradient(ellipse 95% 85% at 50% 50%, #000 50%, transparent 100%);
+  }
+
+  html.dark .cyber-canvas-grid {
+    background-image:
+      linear-gradient(to right, rgba(16, 185, 129, 0.12) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(239, 68, 68, 0.08) 1px, transparent 1px);
   }
 
   .perspective-stage {
@@ -44,41 +158,94 @@
     transform: rotateX(68deg);
     transform-origin: 50% 100%;
     background-image:
-      linear-gradient(to right, rgba(16, 185, 129, 0.22) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(239, 68, 68, 0.22) 1px, transparent 1px);
+      linear-gradient(to right, rgba(24, 24, 27, 0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(39, 39, 42, 0.08) 1px, transparent 1px);
     background-size: 46px 42px;
     mask-image: linear-gradient(to bottom, transparent 10%, rgba(0, 0, 0, 0.9) 60%, #000 100%);
   }
 
+  html.dark .perspective-grid {
+    background-image:
+      linear-gradient(to right, rgba(16, 185, 129, 0.22) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(239, 68, 68, 0.22) 1px, transparent 1px);
+  }
+
   .hud-glass {
-    background-color: rgba(11, 12, 16, 0.90);
+    background-color: rgba(255, 255, 255, 0.92);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
+    border-color: rgba(228, 228, 231, 0.9);
+    box-shadow: 0 20px 50px -15px rgba(0, 0, 0, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  html.dark .hud-glass {
+    background-color: rgba(11, 12, 16, 0.90);
+    border-color: rgba(255, 255, 255, 0.10);
     box-shadow:
       0 24px 60px rgba(0, 0, 0, 0.9),
       inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   .hud-well {
+    background-color: #F4F4F5;
+    border-color: #E4E4E7;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  html.dark .hud-well {
     background-color: #07080B;
+    border-color: rgba(255, 255, 255, 0.10);
     box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.85);
   }
 
-  .spin-radial-glow {
-    background: conic-gradient(
-      from 0deg at 50% 50%,
-      rgba(16, 185, 129, 0.24) 0deg,
-      transparent 70deg,
-      rgba(239, 68, 68, 0.22) 150deg,
-      transparent 220deg,
-      rgba(34, 197, 94, 0.20) 290deg,
-      rgba(220, 38, 38, 0.18) 330deg,
-      rgba(16, 185, 129, 0.24) 360deg
-    );
-    animation: spinRadial 24s linear infinite;
+  .spin-radial-clockwise {
+    background: conic-gradient(from 0deg at 50% 50%,
+        rgba(15, 23, 42, 0.22) 0deg,
+        rgba(30, 58, 138, 0.26) 50deg,
+        rgba(2, 6, 23, 0.20) 100deg,
+        rgba(29, 78, 216, 0.22) 160deg,
+        rgba(24, 24, 27, 0.18) 220deg,
+        rgba(30, 64, 175, 0.25) 270deg,
+        rgba(23, 37, 84, 0.26) 320deg,
+        rgba(15, 23, 42, 0.22) 360deg);
+    animation: spinClockwise 28s linear infinite;
   }
 
-  @keyframes spinRadial {
+  html.dark .spin-radial-clockwise {
+    background: conic-gradient(from 0deg at 50% 50%,
+        rgba(16, 185, 129, 0.28) 0deg,
+        transparent 65deg,
+        rgba(239, 68, 68, 0.26) 140deg,
+        transparent 210deg,
+        rgba(34, 197, 94, 0.24) 280deg,
+        rgba(220, 38, 38, 0.22) 325deg,
+        rgba(16, 185, 129, 0.28) 360deg);
+    animation: spinClockwise 32s linear infinite;
+  }
+
+  .spin-radial-counter {
+    background: conic-gradient(from 180deg at 50% 50%,
+        rgba(23, 37, 84, 0.18) 0deg,
+        transparent 70deg,
+        rgba(30, 58, 138, 0.22) 140deg,
+        transparent 220deg,
+        rgba(15, 23, 42, 0.20) 290deg,
+        rgba(23, 37, 84, 0.18) 360deg);
+    animation: spinCounter 40s linear infinite;
+  }
+
+  html.dark .spin-radial-counter {
+    background: conic-gradient(from 180deg at 50% 50%,
+        rgba(220, 38, 38, 0.18) 0deg,
+        transparent 80deg,
+        rgba(16, 185, 129, 0.20) 160deg,
+        transparent 240deg,
+        rgba(239, 68, 68, 0.16) 310deg,
+        rgba(220, 38, 38, 0.18) 360deg);
+    animation: spinCounter 46s linear infinite;
+  }
+
+  @keyframes spinClockwise {
     from {
       transform: translate(-50%, -50%) rotate(0deg);
     }
@@ -86,20 +253,44 @@
       transform: translate(-50%, -50%) rotate(360deg);
     }
   }
+
+  @keyframes spinCounter {
+    from {
+      transform: translate(-50%, -50%) rotate(360deg);
+    }
+    to {
+      transform: translate(-50%, -50%) rotate(0deg);
+    }
+  }
 }
 
-/* Custom neutral dark scrollbars */
+/* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
+  background: #F8FAFC;
+}
+
+html.dark ::-webkit-scrollbar-track {
   background: #050508;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.15);
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.3);
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.24);
 }
