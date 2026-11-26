@@ -32,6 +32,7 @@ module.exports = {
       },
       fontFamily: {
         sans: [
+          'Redaction',
           'Marcellus',
           'serif',
           'system-ui',
@@ -43,7 +44,13 @@ module.exports = {
           'Arial',
           'sans-serif',
         ],
+        serif: [
+          'Redaction',
+          'Marcellus',
+          'serif',
+        ],
         mono: [
+          'Redaction',
           'Marcellus',
           'ui-monospace',
           'SFMono-Regular',

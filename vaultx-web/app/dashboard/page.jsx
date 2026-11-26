@@ -2,13 +2,15 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Shield, Plus, ExternalLink, RefreshCw, Inbox } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Shield, Plus, ExternalLink, RefreshCw, Inbox, Lock, LogIn } from 'lucide-react';
 import { AuditTrail } from '../../components/dashboard/AuditTrail.jsx';
 import { HexInspector } from '../../components/dashboard/HexInspector.jsx';
 import { RevokeButton } from '../../components/dashboard/RevokeButton.jsx';
 import { TerminalWindow } from '../../components/TerminalWindow.jsx';
 import { ThemeToggle } from '../../components/ThemeToggle.jsx';
 import { AuthNavButton } from '../../components/AuthNavButton.jsx';
+import { useAuth } from '../../lib/authContext.js';
 import { getMetadata } from '../../lib/api.js';
 
 /**
@@ -17,11 +19,20 @@ import { getMetadata } from '../../lib/api.js';
  * and hosting Person 4 components: <AuditTrail />, <HexInspector />, and <RevokeButton />.
  */
 export default function DashboardPage() {
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
   const [sentVaults, setSentVaults] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [inspectedMetaB64, setInspectedMetaB64] = useState('');
   const [inspectedIv, setInspectedIv] = useState('');
   const [inspectStatus, setInspectStatus] = useState('');
+
+  // Redirect unauthenticated senders to login
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [isLoading, user, router]);
 
   const loadVaults = useCallback(() => {
     if (typeof window === 'undefined' || !window.localStorage) return;
@@ -138,7 +149,31 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {sentVaults.length === 0 ? (
+        {isLoading ? (
+          <div className="flex min-h-[300px] items-center justify-center rounded-xl border border-zinc-200 bg-white/80 p-8 shadow-sm dark:border-white/10 dark:bg-[#07080B]">
+            <div className="flex flex-col items-center gap-3">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-900 border-t-transparent dark:border-red-500 dark:border-t-transparent" />
+              <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">Verifying session...</span>
+            </div>
+          </div>
+        ) : !user ? (
+          <div className="rounded-xl border border-zinc-200 bg-white/95 p-10 text-center shadow-lg dark:border-white/10 dark:bg-[#07080B]">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-900 bg-zinc-900 text-white dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400">
+              <Lock className="h-6 w-6" />
+            </div>
+            <h3 className="font-mono text-base font-semibold text-zinc-900 dark:text-[#FAFAFA]">Sign In Required</h3>
+            <p className="mx-auto mt-2 max-w-sm text-xs text-zinc-600 dark:text-[#71717A]">
+              The sender dashboard and telemetry audit trail are available only to authenticated VaultX accounts.
+            </p>
+            <Link
+              href="/login"
+              className="mt-5 inline-flex items-center gap-2 rounded-lg border border-zinc-900 bg-zinc-900 px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-zinc-800 dark:border-emerald-500/30 dark:bg-[#10B981] dark:shadow-emerald-500/25 dark:hover:bg-[#059669]"
+            >
+              <LogIn className="h-4 w-4" />
+              <span>Sign In to Access Dashboard</span>
+            </Link>
+          </div>
+        ) : sentVaults.length === 0 ? (
           <TerminalWindow>
             <div className="p-10 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-[#07080B]">

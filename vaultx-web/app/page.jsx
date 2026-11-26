@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Shield, Key, LayoutDashboard } from 'lucide-react';
+import { Shield, Key, LayoutDashboard, LogIn, Lock } from 'lucide-react';
 import { UploadCard } from '../components/UploadCard.jsx';
 import { KeySetupModal } from '../components/KeySetupModal.jsx';
 import { ThemeToggle } from '../components/ThemeToggle.jsx';
 import { AuthNavButton } from '../components/AuthNavButton.jsx';
+import { useAuth } from '../lib/authContext.js';
 
 /**
  * HomePage (/)
@@ -16,6 +17,7 @@ import { AuthNavButton } from '../components/AuthNavButton.jsx';
  * - Light: Pure White, Minimalist Charcoal, Slate, Black
  */
 export default function HomePage() {
+  const { user, isLoading } = useAuth();
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
   const [activeKeyInfo, setActiveKeyInfo] = useState(null);
 
@@ -129,7 +131,42 @@ export default function HomePage() {
             </div>
           </div>
 
-          <UploadCard />
+          {/* Auth Gate: Senders must have an account */}
+          {isLoading ? (
+            <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-zinc-200 bg-white/80 p-8 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-[#0B0C10]/90">
+              <div className="flex flex-col items-center gap-3">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-900 border-t-transparent dark:border-red-500 dark:border-t-transparent" />
+                <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">Verifying session...</span>
+              </div>
+            </div>
+          ) : !user ? (
+            <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white/95 p-8 text-center shadow-xl shadow-zinc-900/5 backdrop-blur-xl dark:border-white/10 dark:bg-[#0B0C10]/95 dark:shadow-[0_20px_50px_rgba(0,0,0,0.85)] sm:p-10">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-900 bg-zinc-900 text-white dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400">
+                <Lock className="h-7 w-7" />
+              </div>
+              <h2 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-white sm:text-2xl">
+                Account Required to Share
+              </h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-zinc-600 dark:text-zinc-400">
+                To encrypt, upload, and dispatch secure vaults, senders must be signed into a verified VaultX account.
+                Recipients do not need an account to decrypt or download.
+              </p>
+              <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <Link
+                  href="/login"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-900 bg-zinc-900 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-zinc-800 dark:border-emerald-500/30 dark:bg-[#10B981] dark:shadow-lg dark:shadow-emerald-500/25 dark:hover:bg-[#059669] sm:w-auto"
+                >
+                  <LogIn className="h-4 w-4" />
+                  <span>Sign In to Send Files</span>
+                </Link>
+              </div>
+              <div className="mt-6 border-t border-zinc-200 pt-4 font-mono text-[11px] text-zinc-500 dark:border-white/10 dark:text-zinc-500">
+                Are you a recipient? Just paste or open the full link with key fragment.
+              </div>
+            </div>
+          ) : (
+            <UploadCard />
+          )}
         </div>
       </main>
 

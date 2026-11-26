@@ -31,6 +31,11 @@ export function ThemeProvider({ children }) {
   }, []);
 
   const setTheme = (newTheme) => {
+    if (typeof document !== 'undefined') {
+      // Add smooth transition class temporarily to avoid perpetual transition overhead
+      document.documentElement.classList.add('theme-transitioning');
+    }
+
     setThemeState(newTheme);
     try {
       if (typeof window !== 'undefined') {
@@ -42,6 +47,12 @@ export function ThemeProvider({ children }) {
         }
       }
     } catch (_) {}
+
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        document.documentElement.classList.remove('theme-transitioning');
+      }, 400);
+    }
   };
 
   const toggleTheme = () => {

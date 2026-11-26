@@ -2,7 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Local Marcellus Font Faces */
+/* Local Redaction Font Faces (Light Theme Universal) */
+@font-face {
+  font-family: 'Redaction';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/redaction-latin-400-normal.woff2') format('woff2'),
+       url('/fonts/redaction-latin-400-normal.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Redaction';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/redaction-latin-400-italic.woff2') format('woff2'),
+       url('/fonts/redaction-latin-400-italic.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Redaction';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/redaction-latin-700-normal.woff2') format('woff2'),
+       url('/fonts/redaction-latin-700-normal.woff') format('woff');
+}
+
+/* Local Marcellus Font Faces (Dark Theme Universal) */
 @font-face {
   font-family: 'Marcellus';
   font-style: normal;
@@ -24,26 +52,42 @@
 @layer base {
   html {
     color-scheme: light;
-    font-family: 'Marcellus', serif, system-ui, sans-serif;
+    font-family: 'Redaction', serif, system-ui, sans-serif;
   }
 
   html.dark {
     color-scheme: dark;
+    font-family: 'Marcellus', serif, system-ui, sans-serif;
+  }
+
+  /* Smooth cross-fade transition during theme toggling */
+  html.theme-transitioning,
+  html.theme-transitioning *,
+  html.theme-transitioning *::before,
+  html.theme-transitioning *::after {
+    transition: background-color 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                color 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                fill 300ms cubic-bezier(0.4, 0, 0.2, 1),
+                stroke 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition-delay: 0s !important;
   }
 
   body {
-    font-family: 'Marcellus', serif, system-ui, sans-serif;
-    background-color: #F8FAFC;
-    color: #0F172A;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    font-family: 'Redaction', serif, system-ui, sans-serif;
+    background-color: #FFFFFF;
+    color: #18181B;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   html.dark body {
+    font-family: 'Marcellus', serif, system-ui, sans-serif;
     background-color: #050508;
     color: #FAFAFA;
   }
 
-  /* Universal typography override for Marcellus */
+  /* Universal typography override: Redaction for light, Marcellus for dark */
   *,
   button,
   input,
@@ -53,6 +97,18 @@
   kbd,
   samp,
   pre {
+    font-family: 'Redaction', serif, system-ui, sans-serif;
+  }
+
+  html.dark *,
+  html.dark button,
+  html.dark input,
+  html.dark select,
+  html.dark textarea,
+  html.dark code,
+  html.dark kbd,
+  html.dark samp,
+  html.dark pre {
     font-family: 'Marcellus', serif, system-ui, sans-serif;
   }
 
@@ -142,38 +198,68 @@
     box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.85);
   }
 
-  .spin-radial-glow {
+  .spin-radial-clockwise {
     background: conic-gradient(from 0deg at 50% 50%,
-        rgba(24, 24, 27, 0.08) 0deg,
-        rgba(30, 58, 138, 0.09) 45deg,
-        rgba(15, 23, 42, 0.07) 90deg,
-        rgba(29, 78, 216, 0.06) 140deg,
-        rgba(39, 39, 42, 0.05) 190deg,
-        rgba(30, 64, 175, 0.08) 240deg,
-        rgba(24, 24, 27, 0.07) 290deg,
-        rgba(23, 37, 84, 0.08) 330deg,
-        rgba(24, 24, 27, 0.08) 360deg);
-    animation: spinRadial 24s linear infinite;
+        rgba(15, 23, 42, 0.22) 0deg,
+        rgba(30, 58, 138, 0.26) 50deg,
+        rgba(2, 6, 23, 0.20) 100deg,
+        rgba(29, 78, 216, 0.22) 160deg,
+        rgba(24, 24, 27, 0.18) 220deg,
+        rgba(30, 64, 175, 0.25) 270deg,
+        rgba(23, 37, 84, 0.26) 320deg,
+        rgba(15, 23, 42, 0.22) 360deg);
+    animation: spinClockwise 28s linear infinite;
   }
 
-  html.dark .spin-radial-glow {
+  html.dark .spin-radial-clockwise {
     background: conic-gradient(from 0deg at 50% 50%,
-        rgba(16, 185, 129, 0.24) 0deg,
+        rgba(16, 185, 129, 0.28) 0deg,
+        transparent 65deg,
+        rgba(239, 68, 68, 0.26) 140deg,
+        transparent 210deg,
+        rgba(34, 197, 94, 0.24) 280deg,
+        rgba(220, 38, 38, 0.22) 325deg,
+        rgba(16, 185, 129, 0.28) 360deg);
+    animation: spinClockwise 32s linear infinite;
+  }
+
+  .spin-radial-counter {
+    background: conic-gradient(from 180deg at 50% 50%,
+        rgba(23, 37, 84, 0.18) 0deg,
         transparent 70deg,
-        rgba(239, 68, 68, 0.22) 150deg,
+        rgba(30, 58, 138, 0.22) 140deg,
         transparent 220deg,
-        rgba(34, 197, 94, 0.20) 290deg,
-        rgba(220, 38, 38, 0.18) 330deg,
-        rgba(16, 185, 129, 0.24) 360deg);
+        rgba(15, 23, 42, 0.20) 290deg,
+        rgba(23, 37, 84, 0.18) 360deg);
+    animation: spinCounter 40s linear infinite;
   }
 
-  @keyframes spinRadial {
+  html.dark .spin-radial-counter {
+    background: conic-gradient(from 180deg at 50% 50%,
+        rgba(220, 38, 38, 0.18) 0deg,
+        transparent 80deg,
+        rgba(16, 185, 129, 0.20) 160deg,
+        transparent 240deg,
+        rgba(239, 68, 68, 0.16) 310deg,
+        rgba(220, 38, 38, 0.18) 360deg);
+    animation: spinCounter 46s linear infinite;
+  }
+
+  @keyframes spinClockwise {
     from {
       transform: translate(-50%, -50%) rotate(0deg);
     }
-
     to {
       transform: translate(-50%, -50%) rotate(360deg);
+    }
+  }
+
+  @keyframes spinCounter {
+    from {
+      transform: translate(-50%, -50%) rotate(360deg);
+    }
+    to {
+      transform: translate(-50%, -50%) rotate(0deg);
     }
   }
 }
