@@ -6,6 +6,11 @@ import { AuthProvider } from '../lib/authContext.js';
 export const metadata = {
   title: "VaultX | Zero-Knowledge File & Secret Sharing",
   description: "Secure, client-side encrypted zero-knowledge file and secret sharing platform.",
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({ children }) {
