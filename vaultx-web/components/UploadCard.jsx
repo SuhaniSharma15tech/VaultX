@@ -255,18 +255,18 @@ export function UploadCard() {
                   aria-label="Select file to encrypt"
                 />
                 {file ? (
-                  <div className="flex w-full max-w-md items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3 text-left dark:border-white/10 dark:bg-[#0B0C10]">
+                  <div className="flex w-full max-w-md items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3 text-left shadow-sm dark:border-white/10 dark:bg-[#0B0C10]">
                     <div className="min-w-0 pr-3">
                       <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-[#FAFAFA]">{file.name}</p>
+                        <p className="truncate text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">{file.name}</p>
                         {isFileUploaded && (
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#10B981]/40 bg-[#10B981]/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#4ADE80]">
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-700 dark:border-[#10B981]/40 dark:bg-[#10B981]/15 dark:text-[#4ADE80]">
                             <Check className="h-2.5 w-2.5" />
                             <span>Uploaded</span>
                           </span>
                         )}
                       </div>
-                      <p className="font-mono text-xs text-[#71717A]">
+                      <p className="font-mono text-xs text-zinc-500 dark:text-[#71717A]">
                         {formatBytes(file.size)} &bull; {file.type || 'application/octet-stream'}
                       </p>
                     </div>
