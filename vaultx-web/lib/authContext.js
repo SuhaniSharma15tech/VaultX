@@ -9,6 +9,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
  */
 
 const STORAGE_KEY = 'vaultx_auth_session';
+const USERS_STORAGE_KEY = 'vaultx_registered_users';
 
 // Pre-seeded demo accounts for mock login
 const MOCK_ACCOUNTS = [
@@ -16,6 +17,17 @@ const MOCK_ACCOUNTS = [
   { email: 'alice@vaultx.io', password: 'alice123', name: 'Alice' },
   { email: 'demo@vaultx.io', password: 'demo1234', name: 'Demo User' },
 ];
+
+function getRegisteredUsers() {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+  try {
+    const raw = window.localStorage.getItem(USERS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
 
 const AuthContext = createContext(null);
 
@@ -51,7 +63,8 @@ export function AuthProvider({ children }) {
 
     const normalEmail = email.trim().toLowerCase();
 
-    const matched = MOCK_ACCOUNTS.find(
+    const allAccounts = [...MOCK_ACCOUNTS, ...getRegisteredUsers()];
+    const matched = allAccounts.find(
       (a) => a.email === normalEmail && a.password === password
     );
 
@@ -80,6 +93,49 @@ export function AuthProvider({ children }) {
     return { success: true, user: session };
   }, []);
 
+  /**
+   * Mock sign-up.
+   * Registers a new local demo account and signs the user in immediately.
+   */
+  const signUp = useCallback(async ({ name, email, password }) => {
+    await new Promise((r) => setTimeout(r, 800 + Math.random() * 400));
+
+    const cleanName = name.trim();
+    const normalEmail = email.trim().toLowerCase();
+    const existing = [...MOCK_ACCOUNTS, ...getRegisteredUsers()].find(
+      (a) => a.email === normalEmail
+    );
+
+    if (existing) {
+      return { success: false, error: 'An account with this email already exists.' };
+    }
+
+    const newAccount = { name: cleanName, email: normalEmail, password };
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const updatedUsers = [...getRegisteredUsers(), newAccount];
+        window.localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
+      } catch (_) {}
+    }
+
+    const session = {
+      email: normalEmail,
+      name: cleanName,
+      loginAt: new Date().toISOString(),
+      remember: true,
+    };
+
+    setUser(session);
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+      } catch (_) {}
+    }
+
+    return { success: true, user: session };
+  }, []);
+
   const signOut = useCallback(() => {
     setUser(null);
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -90,7 +146,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -286,17 +286,12 @@ export default function LoginPage() {
           <div className="border-t border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-[#07080B] px-5 py-3.5 text-center">
             <p className="text-xs text-zinc-600 dark:text-[#A1A1AA]">
               Don&apos;t have an account?{' '}
-              <button
-                type="button"
+              <Link
+                href="/signup"
                 className="font-mono font-medium text-zinc-900 underline hover:text-black dark:text-[#10B981] dark:hover:text-[#4ADE80] transition-colors"
-                onClick={() =>
-                  alert(
-                    'Pre-seeded demo accounts:\n• demo@vaultx.io (password: demo1234)\n• admin@vaultx.io (password: admin123)\n• Or universal password: vaultx'
-                  )
-                }
               >
-                Create Account
-              </button>
+                Sign Up
+              </Link>
             </p>
           </div>
         </TerminalWindow>
