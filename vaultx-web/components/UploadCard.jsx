@@ -472,7 +472,7 @@ export function UploadCard() {
               {/* Burn After Reading (1 View) */}
               <div
                 className={`flex items-center justify-between gap-2.5 rounded-lg border px-3 py-2 transition-colors sm:col-span-2 ${isBurnAfterReading
-                  ? 'border-zinc-900 bg-zinc-200 text-zinc-900 dark:border-red-500/50 dark:bg-gradient-to-r dark:from-red-950/30 dark:to-[#0B0C10] dark:text-red-400'
+                  ? 'border-red-500/50 bg-red-50/80 text-red-700 dark:border-red-500/50 dark:bg-red-950/40 dark:text-red-300'
                   : 'border-zinc-200 bg-white text-zinc-700 dark:border-white/10 dark:bg-[#0B0C10] dark:text-[#A1A1AA]'
                   }`}
               >
@@ -483,15 +483,17 @@ export function UploadCard() {
                     checked={isBurnAfterReading}
                     onChange={(e) => handleBurnToggle(e.target.checked)}
                     disabled={isBusy}
-                    className="burn-checkbox h-4 w-4 rounded accent-zinc-900 dark:border-white/20 dark:bg-[#050508] dark:accent-red-500"
+                    className="burn-checkbox h-4 w-4 rounded accent-red-600 dark:border-red-500/40 dark:bg-[#050508] dark:accent-red-500 cursor-pointer"
                   />
                   <label htmlFor="vaultx-burn" className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium">
-                    <Flame className={`h-3.5 w-3.5 ${isBurnAfterReading ? 'text-zinc-900 dark:text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
-                    <span>Burn After Reading (1 View)</span>
+                    <Flame className={`h-3.5 w-3.5 ${isBurnAfterReading ? 'text-red-600 dark:text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+                    <span className={isBurnAfterReading ? 'text-red-700 dark:text-red-300 font-semibold' : ''}>
+                      Burn After Reading (1 View)
+                    </span>
                   </label>
                 </div>
                 {isBurnAfterReading && (
-                  <span className="rounded border border-zinc-400 bg-zinc-300 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-900 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400">
+                  <span className="rounded border border-red-500/40 bg-red-100 text-red-700 dark:border-red-500/50 dark:bg-red-950/60 dark:text-red-300 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider">
                     Self-Destruct Armed
                   </span>
                 )}
@@ -500,7 +502,7 @@ export function UploadCard() {
               {/* Password Protection */}
               <div
                 className={`space-y-2.5 rounded-lg border px-3 py-2.5 transition-colors sm:col-span-2 ${isPasswordProtected
-                  ? 'border-zinc-900 bg-zinc-200 text-zinc-900 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400'
+                  ? 'border-blue-900/40 bg-blue-50/60 text-blue-950 dark:border-red-500/50 dark:bg-red-950/40 dark:text-red-300'
                   : 'border-zinc-200 bg-white text-zinc-700 dark:border-white/10 dark:bg-[#0B0C10] dark:text-[#A1A1AA]'
                   }`}
               >
@@ -512,15 +514,17 @@ export function UploadCard() {
                       checked={isPasswordProtected}
                       onChange={(e) => setIsPasswordProtected(e.target.checked)}
                       disabled={isBusy}
-                      className="password-toggle h-4 w-4 rounded accent-zinc-900 dark:border-white/20 dark:bg-[#050508] dark:accent-red-500"
+                      className="password-toggle h-4 w-4 rounded accent-blue-900 dark:border-red-500/40 dark:bg-[#050508] dark:accent-red-500 cursor-pointer"
                     />
                     <label htmlFor="vaultx-password-toggle" className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium">
-                      <Lock className={`h-3.5 w-3.5 ${isPasswordProtected ? 'text-zinc-900 dark:text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
-                      <span>Require Additional Password (PBKDF2 key wrapping)</span>
+                      <Lock className={`h-3.5 w-3.5 ${isPasswordProtected ? 'text-blue-900 dark:text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
+                      <span className={isPasswordProtected ? 'text-blue-950 dark:text-red-300 font-semibold' : ''}>
+                        Require Additional Password (PBKDF2 key wrapping)
+                      </span>
                     </label>
                   </div>
                   {isPasswordProtected && (
-                    <span className="rounded border border-zinc-400 bg-zinc-300 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-900 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400">
+                    <span className="rounded border border-blue-300 bg-blue-100 text-blue-900 dark:border-red-500/50 dark:bg-red-950/60 dark:text-red-300 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider">
                       Locked
                     </span>
                   )}
