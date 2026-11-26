@@ -24,14 +24,19 @@ export function AuthNavButton({ variant = 'primary', mono = false }) {
 
   if (user) {
     return (
-      <button
-        type="button"
-        onClick={handleLogout}
-        className={`inline-flex items-center gap-1.5 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-1.5 ${fontClass}text-xs font-medium text-red-400 transition-colors hover:border-red-500/60 hover:bg-red-500/20`}
-      >
-        <LogOut className="h-3.5 w-3.5" />
-        <span>Logout</span>
-      </button>
+      <div className="flex items-center gap-2">
+        <span className={`hidden text-xs text-zinc-600 dark:text-zinc-400 sm:inline ${fontClass}`}>
+          {user.name || user.email}
+        </span>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className={`inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 ${fontClass}text-xs font-medium text-zinc-700 transition-colors hover:border-red-400 hover:bg-red-50 hover:text-red-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400 dark:hover:border-red-500/60 dark:hover:bg-red-500/20`}
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          <span>Logout</span>
+        </button>
+      </div>
     );
   }
 
@@ -39,10 +44,10 @@ export function AuthNavButton({ variant = 'primary', mono = false }) {
     return (
       <Link
         href="/login"
-        className={`inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 ${fontClass}text-xs font-medium text-zinc-200 transition-colors hover:border-white/20 hover:bg-white/10`}
+        className={`inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 ${fontClass}text-xs font-medium text-zinc-800 transition-colors hover:border-zinc-400 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-white/10`}
       >
-        <LogIn className="h-3.5 w-3.5 text-[#A1A1AA]" />
-        <span>Login</span>
+        <LogIn className="h-3.5 w-3.5 text-zinc-500 dark:text-[#A1A1AA]" />
+        <span>Sign In</span>
       </Link>
     );
   }
@@ -50,10 +55,10 @@ export function AuthNavButton({ variant = 'primary', mono = false }) {
   return (
     <Link
       href="/login"
-      className={`inline-flex items-center gap-1.5 rounded-md bg-[#10B981] px-3.5 py-1.5 ${fontClass}text-xs font-semibold text-white shadow-lg shadow-emerald-500/25 transition-colors hover:bg-[#059669]`}
+      className={`inline-flex items-center gap-1.5 rounded-md border border-zinc-900 bg-zinc-900 px-3.5 py-1.5 ${fontClass}text-xs font-semibold text-white shadow-sm transition-colors hover:bg-zinc-800 dark:border-emerald-500/30 dark:bg-[#10B981] dark:shadow-lg dark:shadow-emerald-500/25 dark:hover:bg-[#059669]`}
     >
       <LogIn className="h-3.5 w-3.5" />
-      <span>Login</span>
+      <span>Sign In</span>
     </Link>
   );
 }

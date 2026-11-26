@@ -2,12 +2,15 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Shield, Plus, ExternalLink, RefreshCw, Inbox } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Shield, Plus, ExternalLink, RefreshCw, Inbox, Lock, LogIn } from 'lucide-react';
 import { AuditTrail } from '../../components/dashboard/AuditTrail.jsx';
 import { HexInspector } from '../../components/dashboard/HexInspector.jsx';
 import { RevokeButton } from '../../components/dashboard/RevokeButton.jsx';
 import { TerminalWindow } from '../../components/TerminalWindow.jsx';
+import { ThemeToggle } from '../../components/ThemeToggle.jsx';
 import { AuthNavButton } from '../../components/AuthNavButton.jsx';
+import { useAuth } from '../../lib/authContext.js';
 import { getMetadata } from '../../lib/api.js';
 
 /**
@@ -16,11 +19,20 @@ import { getMetadata } from '../../lib/api.js';
  * and hosting Person 4 components: <AuditTrail />, <HexInspector />, and <RevokeButton />.
  */
 export default function DashboardPage() {
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
   const [sentVaults, setSentVaults] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [inspectedMetaB64, setInspectedMetaB64] = useState('');
   const [inspectedIv, setInspectedIv] = useState('');
   const [inspectStatus, setInspectStatus] = useState('');
+
+  // Redirect unauthenticated senders to login
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [isLoading, user, router]);
 
   const loadVaults = useCallback(() => {
     if (typeof window === 'undefined' || !window.localStorage) return;
@@ -93,14 +105,14 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="relative min-h-screen text-[#FAFAFA]">
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050508]/85 backdrop-blur-xl">
+    <div className="relative min-h-screen text-zinc-900 dark:text-[#FAFAFA] transition-colors duration-150">
+      <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/85 dark:border-white/10 dark:bg-[#050508]/85 backdrop-blur-xl transition-colors duration-150">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-4 py-3">
           <Link href="/" className="group flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/40 bg-red-500/10 transition-colors group-hover:border-red-500/60">
-              <Shield className="h-4 w-4 text-[#EF4444]" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-900 bg-zinc-900 text-white dark:border-red-500/40 dark:bg-red-500/10 dark:text-[#EF4444] transition-colors group-hover:opacity-90">
+              <Shield className="h-4 w-4" />
             </div>
-            <span className="text-base font-bold tracking-tight text-[#FAFAFA]">
+            <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-[#FAFAFA]">
               VAULTX
             </span>
           </Link>
@@ -109,34 +121,59 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={loadVaults}
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 font-mono text-xs font-medium text-zinc-200 transition-colors hover:border-white/20 hover:bg-white/10"
+              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 font-mono text-xs font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-white/10"
             >
-              <RefreshCw className="h-3.5 w-3.5 text-[#A1A1AA]" />
+              <RefreshCw className="h-3.5 w-3.5 text-zinc-500 dark:text-[#A1A1AA]" />
               <span>Refresh</span>
             </button>
 
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 rounded-md bg-[#10B981] px-3.5 py-1.5 font-mono text-xs font-semibold text-white shadow-lg shadow-emerald-500/25 transition-colors hover:bg-[#059669]"
+              className="inline-flex items-center gap-1.5 rounded-md bg-zinc-900 text-white hover:bg-black shadow-md dark:bg-[#10B981] dark:shadow-emerald-500/25 dark:hover:bg-[#059669] px-3.5 py-1.5 font-mono text-xs font-semibold transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>New Vault</span>
             </Link>
 
             <AuthNavButton variant="outline" mono />
+            <ThemeToggle />
           </nav>
         </div>
       </header>
 
       <main className="relative z-10 mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold tracking-tight text-[#FAFAFA]">Sent Vaults</h2>
-          <p className="mt-1 text-sm text-[#A1A1AA]">
+          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-[#FAFAFA]">Sent Vaults</h2>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-[#A1A1AA]">
             Locally tracked uploads from this browser. Inspect access logs, raw ciphertext headers, or trigger instant kill-switch revocation.
           </p>
         </div>
 
-        {sentVaults.length === 0 ? (
+        {isLoading ? (
+          <div className="flex min-h-[300px] items-center justify-center rounded-xl border border-zinc-200 bg-white/80 p-8 shadow-sm dark:border-white/10 dark:bg-[#07080B]">
+            <div className="flex flex-col items-center gap-3">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-900 border-t-transparent dark:border-red-500 dark:border-t-transparent" />
+              <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">Verifying session...</span>
+            </div>
+          </div>
+        ) : !user ? (
+          <div className="rounded-xl border border-zinc-200 bg-white/95 p-10 text-center shadow-lg dark:border-white/10 dark:bg-[#07080B]">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-900 bg-zinc-900 text-white dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400">
+              <Lock className="h-6 w-6" />
+            </div>
+            <h3 className="font-mono text-base font-semibold text-zinc-900 dark:text-[#FAFAFA]">Sign In Required</h3>
+            <p className="mx-auto mt-2 max-w-sm text-xs text-zinc-600 dark:text-[#71717A]">
+              The sender dashboard and telemetry audit trail are available only to authenticated VaultX accounts.
+            </p>
+            <Link
+              href="/login"
+              className="mt-5 inline-flex items-center gap-2 rounded-lg border border-zinc-900 bg-zinc-900 px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-zinc-800 dark:border-emerald-500/30 dark:bg-[#10B981] dark:shadow-emerald-500/25 dark:hover:bg-[#059669]"
+            >
+              <LogIn className="h-4 w-4" />
+              <span>Sign In to Access Dashboard</span>
+            </Link>
+          </div>
+        ) : sentVaults.length === 0 ? (
           <TerminalWindow>
             <div className="p-10 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-[#07080B]">
@@ -166,33 +203,33 @@ export default function DashboardPage() {
                   <div
                     key={itemId}
                     onClick={() => setSelectedId(itemId)}
-                    className={`vault-list-item cursor-pointer rounded-xl border p-4 transition-colors ${
+                    className={`vault-list-item cursor-pointer rounded-xl border p-4 transition-all ${
                       isSelected
-                        ? 'hud-glass border-[#10B981] shadow-[0_0_20px_-5px_rgba(16,185,129,0.25)]'
-                        : 'hud-glass border-white/10 hover:border-white/20'
+                        ? 'border-blue-900 bg-blue-50/40 shadow-md shadow-blue-900/5 ring-1 ring-blue-950/20 dark:border-[#10B981] dark:bg-[#0B0C10]/90 dark:ring-0 dark:shadow-[0_0_20px_-5px_rgba(16,185,129,0.25)]'
+                        : 'border-zinc-200 bg-white/80 hover:border-blue-800/40 hover:bg-blue-50/20 dark:border-white/10 dark:bg-[#0B0C10]/60 dark:hover:border-white/20'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-[#FAFAFA]">
+                        <p className={`truncate text-sm font-semibold ${isSelected ? 'text-blue-950 dark:text-[#FAFAFA]' : 'text-zinc-900 dark:text-[#FAFAFA]'}`}>
                           {item.filename || 'Encrypted Payload'}
                         </p>
-                        <p className="mt-0.5 font-mono text-[11px] text-[#71717A]">
+                        <p className="mt-0.5 font-mono text-[11px] text-zinc-500 dark:text-[#71717A]">
                           ID: {itemId} &bull; {item.mode || 'MODE_B'}
                         </p>
                       </div>
                       {item.revoked && (
-                        <span className="rounded border border-red-500/40 bg-red-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-red-400">
+                        <span className="rounded border border-zinc-300 bg-zinc-100 px-2 py-0.5 font-mono text-[10px] font-bold text-zinc-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400">
                           REVOKED
                         </span>
                       )}
                     </div>
 
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-2.5">
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 dark:border-white/10 pt-2.5">
                       <Link
                         href={`/v/${itemId}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1 font-mono text-xs font-medium text-[#A1A1AA] hover:text-[#FAFAFA] hover:underline"
+                        className="inline-flex items-center gap-1 font-mono text-xs font-medium text-blue-900 hover:text-blue-950 hover:underline dark:text-[#A1A1AA] dark:hover:text-[#FAFAFA]"
                       >
                         <span>Open Route</span>
                         <ExternalLink className="h-3 w-3" />
@@ -216,13 +253,13 @@ export default function DashboardPage() {
             <section className="lg:col-span-7 space-y-5">
               {selectedVault && (
                 <>
-                  <div className="hud-glass rounded-xl border border-white/10 p-4">
+                  <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0B0C10]/80">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <h3 className="text-sm font-semibold text-[#FAFAFA]">
+                        <h3 className="text-sm font-semibold text-blue-950 dark:text-[#FAFAFA]">
                           {selectedVault.filename || 'Selected Vault'}
                         </h3>
-                        <p className="font-mono text-xs text-[#71717A]">
+                        <p className="font-mono text-xs text-zinc-500 dark:text-[#71717A]">
                           Created:{' '}
                           {selectedVault.createdAt
                             ? new Date(selectedVault.createdAt).toLocaleString()

@@ -136,24 +136,6 @@ export function AuthProvider({ children }) {
     return { success: true, user: session };
   }, []);
 
-  /**
-   * Guest access — no credentials needed.
-   */
-  const continueAsGuest = useCallback(() => {
-    const session = {
-      email: 'guest',
-      name: 'Guest',
-      isGuest: true,
-      loginAt: new Date().toISOString(),
-    };
-    setUser(session);
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-      } catch (_) {}
-    }
-  }, []);
-
   const signOut = useCallback(() => {
     setUser(null);
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -164,7 +146,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut, continueAsGuest }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
