@@ -306,41 +306,36 @@ export function UploadCard() {
     } catch (_) { }
   };
 
-  // File Upload tab submit: uploads the selected file and snapshots its initial independent settings
+  // File Upload tab submit: directly encrypts and shares the file using the selected settings
   const handleFileUploadSubmit = async (e) => {
     e.preventDefault();
     if (!file) return;
+    if (mode === 'MODE_A' && !recipientUsername.trim()) return;
+    if (isPasswordProtected && !password) return;
     setDuplicateFileInfo(null);
-    const initialSettingsSnapshot = createDefaultFileSettings({
-      mode,
-      recipientUsername,
-      recipientInfo,
-      expiryMinutes,
-      maxDownloads,
-      isBurnAfterReading,
-      isPasswordProtected,
-      password,
-    });
 
     try {
-      const uploaded = await uploadBaseFile();
-      if (uploaded) {
-        const newId = uploaded.fileId || uploaded.id;
-        if (fileInputRef.current) fileInputRef.current.value = '';
-
-        setSettingsByFileId((prev) => {
-          const nextMap = { ...prev, [newId]: initialSettingsSnapshot };
-          persistSettingsMap(nextMap);
-          return nextMap;
-        });
-
-        // Sync initial settings for this specific fileId on backend
-        if (uploaded.ownerToken) {
-          updateVaultSettings(newId, uploaded.ownerToken, initialSettingsSnapshot).catch(() => {});
-        }
-
-        setRecentFiles((prev) => [uploaded, ...prev].slice(0, 3));
-        setSelectedFileCardId(newId);
+      const uploadRes = await executeUpload();
+      if (uploadRes) {
+        const newRecord = {
+          fileId: uploadRes.fileId,
+          id: uploadRes.fileId,
+          filename: file.name,
+          sizeBytes: file.size,
+          fileKeyB64Url: uploadRes.fragmentKeyB64 || null,
+          ownerToken: uploadRes.ownerToken,
+          status: 'SHARED',
+          createdAt: new Date().toISOString(),
+          settings: {
+            mode,
+            recipientUsername,
+            expiryMinutes,
+            maxDownloads,
+            isBurnAfterReading,
+            isPasswordProtected,
+          },
+        };
+        setRecentFiles((prev) => [newRecord, ...prev.filter((f) => (f.fileId || f.id) !== uploadRes.fileId)].slice(0, 3));
       }
     } catch (err) {
       if (err?.code === 'DUPLICATE_FILE' && err.existingFile) {
@@ -550,18 +545,18 @@ export function UploadCard() {
             </div>
 
             {settings.recipientInfo && (
-              <div className="recipient-fingerprint rounded-lg border border-blue-200 bg-blue-50/70 dark:border-emerald-500/35 dark:bg-emerald-950/20 p-2.5 text-xs">
+              <div className="recipient-fingerprint rounded-lg border border-blue-200 bg-blue-50/70 p-2.5 text-xs dark:border-emerald-500/35 dark:bg-emerald-950/20">
                 <p className="font-mono font-semibold text-blue-950 dark:text-emerald-400">
                   Verified Key for {settings.recipientInfo.username}
                 </p>
-                <p className="mt-1 break-all font-mono text-[11px] text-[#A1A1AA]">
+                <p className="mt-1 break-all font-mono text-[11px] text-zinc-600 dark:text-[#A1A1AA]">
                   Fingerprint: {settings.recipientInfo.fingerprint}
                 </p>
               </div>
             )}
 
             {recipientLookupStatus === 'not_found' && !settings.recipientInfo && (
-              <p className="font-mono text-xs text-red-400">
+              <p className="font-mono text-xs text-blue-900 dark:text-red-400">
                 Recipient not found. Ask them to register or generate a keypair via Key Setup first.
               </p>
             )}
@@ -762,13 +757,13 @@ export function UploadCard() {
                 disabled={disabled}
                 placeholder="Enter link protection password..."
                 aria-label="Vault protection password"
-                className="password-input w-full rounded-md border border-red-500/30 bg-[#050508] px-3 py-1.5 pr-10 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-red-500 focus:outline-none"
+                className="password-input w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 pr-10 font-mono text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none dark:border-red-500/30 dark:bg-[#050508] dark:text-[#FAFAFA] dark:placeholder-[#71717A] dark:focus:border-red-500"
               />
               <button
                 type="button"
                 onClick={onToggleShowPwd}
                 disabled={disabled}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#71717A] hover:text-[#FAFAFA] transition-colors focus:outline-none"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-900 transition-colors focus:outline-none dark:text-[#71717A] dark:hover:text-[#FAFAFA]"
                 aria-label={showPwd ? 'Hide password' : 'Show password'}
               >
                 {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -781,16 +776,16 @@ export function UploadCard() {
   );
 
   const renderShareOutput = (outputResult, extraLinks = []) => (
-    <div className="share-output hud-well mt-4 space-y-4 rounded-xl border border-blue-900/30 dark:border-emerald-500/35 p-4">
-      <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+    <div className="share-output hud-well mt-4 space-y-4 rounded-xl border border-blue-900/30 bg-white p-4 dark:border-emerald-500/35 dark:bg-[#07080B]">
+      <div className="flex items-center justify-between border-b border-zinc-200 pb-2.5 dark:border-white/10">
         <h3 className="font-mono text-sm font-bold text-blue-950 dark:text-emerald-400">
           Vault Ready &amp; Encrypted
         </h3>
-        <span className="font-mono text-xs text-[#71717A]">ID: {outputResult.fileId}</span>
+        <span className="font-mono text-xs text-zinc-500 dark:text-[#71717A]">ID: {outputResult.fileId}</span>
       </div>
 
       <div>
-        <label className="mb-1.5 block font-mono text-xs font-medium text-[#71717A]">
+        <label className="mb-1.5 block font-mono text-xs font-medium text-zinc-600 dark:text-[#71717A]">
           Shareable Zero-Knowledge Link
         </label>
         <div className="flex flex-wrap gap-2">
@@ -799,12 +794,12 @@ export function UploadCard() {
             readOnly
             value={outputResult.fullShareUrl}
             aria-label="Shareable link"
-            className="share-url-input min-w-0 flex-1 rounded-md border border-white/10 bg-[#0B0C10] px-3 py-1.5 font-mono text-xs text-zinc-200 select-all"
+            className="share-url-input min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-xs text-zinc-900 select-all focus:border-zinc-900 focus:outline-none dark:border-white/10 dark:bg-[#0B0C10] dark:text-zinc-200 dark:focus:border-[#10B981]"
           />
           <button
             type="button"
             onClick={() => handleCopyText(outputResult.fullShareUrl, setCopiedLink)}
-            className="btn-copy-link inline-flex items-center gap-1.5 rounded-md bg-zinc-900 hover:bg-black text-white dark:bg-[#10B981] dark:hover:bg-[#059669] px-3 py-1.5 font-mono text-xs font-semibold shadow-md dark:shadow-emerald-500/20"
+            className="btn-copy-link inline-flex items-center gap-1.5 rounded-md bg-zinc-900 hover:bg-black text-white px-3 py-1.5 font-mono text-xs font-semibold shadow-sm transition-colors dark:bg-[#10B981] dark:hover:bg-[#059669] dark:text-black dark:shadow-emerald-500/20"
           >
             {copiedLink ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             <span>{copiedLink ? 'Copied' : 'Copy'}</span>
@@ -815,7 +810,7 @@ export function UploadCard() {
               setQrUrl(outputResult.fullShareUrl);
               setIsQrOpen(true);
             }}
-            className="btn-open-qr inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 font-mono text-xs font-medium text-zinc-200 hover:bg-white/10"
+            className="btn-open-qr inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-xs font-medium text-zinc-700 hover:bg-zinc-100 transition-colors dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10"
           >
             <QrCode className="h-3.5 w-3.5" />
             <span>QR Code</span>
@@ -823,26 +818,26 @@ export function UploadCard() {
         </div>
       </div>
 
-      <div className="owner-token-banner rounded-lg border border-red-500/30 bg-red-500/5 p-3">
+      <div className="owner-token-banner rounded-lg border border-blue-900/30 bg-blue-50/80 p-3 dark:border-red-500/30 dark:bg-red-500/5">
         <div className="flex items-start gap-2.5">
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-blue-900 dark:text-red-400" />
           <div className="min-w-0 flex-1">
-            <p className="font-mono text-xs font-bold text-[#FAFAFA]">Owner Revocation Token</p>
-            <p className="mt-0.5 text-xs text-[#A1A1AA]">
+            <p className="font-mono text-xs font-bold text-blue-950 dark:text-[#FAFAFA]">Owner Revocation Token</p>
+            <p className="mt-0.5 text-xs text-zinc-600 dark:text-[#A1A1AA]">
               Save this token to audit access or destroy the vault early from the{' '}
-              <Link href="/dashboard" className="text-zinc-200 underline hover:text-white">
+              <Link href="/dashboard" className="text-blue-900 underline hover:text-blue-950 dark:text-zinc-200 dark:hover:text-white">
                 Sender Dashboard
               </Link>
               .
             </p>
             <div className="mt-2 flex items-center gap-2">
-              <code className="flex-1 truncate rounded border border-white/10 bg-[#050508] px-2.5 py-1 font-mono text-xs text-zinc-200 select-all">
+              <code className="flex-1 truncate rounded border border-zinc-300 bg-white px-2.5 py-1 font-mono text-xs text-zinc-900 select-all dark:border-white/10 dark:bg-[#050508] dark:text-zinc-200">
                 {outputResult.ownerToken}
               </code>
               <button
                 type="button"
                 onClick={() => handleCopyText(outputResult.ownerToken, setCopiedToken)}
-                className="btn-copy-token inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-xs font-medium text-zinc-200 hover:bg-white/10"
+                className="btn-copy-token inline-flex items-center gap-1 rounded border border-zinc-300 bg-white px-2.5 py-1 font-mono text-xs font-medium text-zinc-700 hover:bg-zinc-100 transition-colors dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10"
               >
                 {copiedToken ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 <span>{copiedToken ? 'Copied' : 'Copy'}</span>
@@ -853,27 +848,27 @@ export function UploadCard() {
       </div>
 
       {outputResult.sha256Checksum && (
-        <p className="truncate font-mono text-[11px] text-[#71717A]">
-          Plaintext SHA-256: {outputResult.sha256Checksum}
+        <p className="truncate font-mono text-[11px] text-zinc-500 dark:text-[#71717A]">
+          Plaintext SHA-256: <span className="text-zinc-700 dark:text-emerald-400">{outputResult.sha256Checksum}</span>
         </p>
       )}
 
       {extraLinks.length > 1 && (
-        <div className="border-t border-white/10 pt-3">
-          <p className="mb-2 font-mono text-[11px] font-medium text-[#A1A1AA]">
+        <div className="border-t border-zinc-200 pt-3 dark:border-white/10">
+          <p className="mb-2 font-mono text-[11px] font-medium text-zinc-700 dark:text-[#A1A1AA]">
             Generated Links for This File ({extraLinks.length})
           </p>
           <div className="max-h-36 space-y-1.5 overflow-y-auto pr-1">
             {extraLinks.map((entry, idx) => (
               <div
                 key={`${entry.fileId}-${idx}`}
-                className="flex items-center justify-between gap-2 rounded-md border border-white/10 bg-[#0B0C10] px-2.5 py-1.5"
+                className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 dark:border-white/10 dark:bg-[#0B0C10]"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-mono text-[11px] text-zinc-200">
+                  <p className="truncate font-mono text-[11px] text-zinc-800 dark:text-zinc-200">
                     {entry.fullShareUrl}
                   </p>
-                  <p className="font-mono text-[10px] text-[#71717A]">
+                  <p className="font-mono text-[10px] text-zinc-500 dark:text-[#71717A]">
                     {entry.mode} &bull; {entry.maxDownloads}dl &bull; {entry.expiryMinutes}m
                     {entry.isBurnAfterReading ? ' • Burn' : ''}
                     {entry.isPasswordProtected ? ' • Password' : ''}
@@ -882,7 +877,7 @@ export function UploadCard() {
                 <button
                   type="button"
                   onClick={() => navigator.clipboard?.writeText(entry.fullShareUrl)}
-                  className="shrink-0 rounded border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] text-zinc-200 hover:bg-white/10"
+                  className="shrink-0 rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-[10px] text-zinc-700 hover:bg-zinc-100 transition-colors dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10"
                 >
                   Copy
                 </button>
@@ -1027,25 +1022,53 @@ export function UploadCard() {
                 </div>
               )}
 
-              {/* Always shows Upload File (never turns into Encrypt & Share) */}
-              <button
-                type="submit"
-                disabled={isBusy || !file}
-                className="btn-upload inline-flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-900 hover:bg-black dark:bg-[#10B981] dark:hover:bg-[#059669] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-md dark:shadow-emerald-500/25 transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-              >
-                {isBusy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={
+                    isBusy ||
+                    !file ||
+                    (mode === 'MODE_A' && !recipientUsername.trim()) ||
+                    (isPasswordProtected && !password)
+                  }
+                  className="btn-upload inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-900 hover:bg-black dark:bg-[#10B981] dark:hover:bg-[#059669] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-md dark:shadow-emerald-500/25 transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                >
+                  <Lock className="h-4 w-4" />
+                  <span>
+                    {status === 'encrypting'
+                      ? 'Encrypting...'
+                      : status === 'uploading'
+                        ? 'Uploading...'
+                        : status === 'success'
+                          ? 'Encrypted & Shared'
+                          : status === 'error'
+                            ? 'Retry Encrypt & Share'
+                            : 'Encrypt & Share'}
+                  </span>
+                </button>
+
+                {(status === 'success' || status === 'error') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      reset();
+                      setFile(null);
+                      if (fileInputRef.current) fileInputRef.current.value = '';
+                      setDuplicateFileInfo(null);
+                      setFormLookupStatus('');
+                      setCopiedLink(false);
+                      setCopiedToken(false);
+                      setIsQrOpen(false);
+                    }}
+                    className="btn-reset inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-white/10 bg-zinc-100 dark:bg-white/5 px-4 py-3 font-mono text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-white/10"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    <span>Reset</span>
+                  </button>
                 )}
-                <span>
-                  {status === 'encrypting'
-                    ? 'Encrypting...'
-                    : status === 'uploading'
-                      ? 'Uploading...'
-                      : 'Upload File'}
-                </span>
-              </button>
+              </div>
+
+              {status === 'success' && result && renderShareOutput(result)}
             </form>
           ) : (
             <form onSubmit={handleNoteSubmit} className="space-y-4">

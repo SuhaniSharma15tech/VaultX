@@ -105,13 +105,13 @@ export function RevokeButton({
         </button>
 
         {error && (
-          <div className="inline-flex items-center gap-1 font-mono text-[11px] text-red-400">
+          <div className="inline-flex items-center gap-1 font-mono text-[11px] text-blue-900 dark:text-red-400">
             <AlertCircle className="h-3 w-3 shrink-0" />
             <span>{error}</span>
             <button
               type="button"
               onClick={dismissError}
-              className="ml-1 rounded p-0.5 hover:bg-red-500/10"
+              className="ml-1 rounded p-0.5 hover:bg-blue-50 dark:hover:bg-red-500/10"
               title="Dismiss"
             >
               <X className="h-3 w-3" />
