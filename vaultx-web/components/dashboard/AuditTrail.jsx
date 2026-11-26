@@ -76,9 +76,9 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
       {/* Top Header */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 dark:border-white/10 pb-2.5">
         <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-zinc-900 dark:text-[#10B981]" />
+          <Activity className="h-4 w-4 text-blue-900 dark:text-[#10B981]" />
           <h4 className="font-mono text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">Access Audit Trail</h4>
-          <span className="rounded-full border border-zinc-200 bg-zinc-100 dark:border-white/10 dark:bg-white/5 px-2 py-0.5 font-mono text-[10px] text-zinc-600 dark:text-[#A1A1AA]">
+          <span className="rounded-full border border-blue-200 bg-blue-50/70 text-blue-950 dark:border-white/10 dark:bg-white/5 dark:text-[#A1A1AA] px-2 py-0.5 font-mono text-[10px]">
             {filteredLogs.length} events
           </span>
         </div>
@@ -89,13 +89,13 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
             type="button"
             onClick={() => setAutoRefresh((prev) => !prev)}
             className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 font-mono text-xs transition-colors ${autoRefresh
-              ? 'border-zinc-300 bg-zinc-100 text-zinc-900 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-emerald-300'
+              ? 'border-blue-300 bg-blue-50 text-blue-950 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-emerald-300'
               : 'border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-800 dark:border-white/10 dark:bg-white/5 dark:text-[#71717A] dark:hover:text-[#A1A1AA]'
               }`}
             title="Toggle automatic polling every 6 seconds"
           >
             <span
-              className={`h-1.5 w-1.5 rounded-full ${autoRefresh ? 'bg-zinc-800 dark:bg-emerald-400 animate-pulse' : 'bg-zinc-400 dark:bg-[#71717A]'
+              className={`h-1.5 w-1.5 rounded-full ${autoRefresh ? 'bg-blue-800 dark:bg-emerald-400 animate-pulse' : 'bg-zinc-400 dark:bg-[#71717A]'
                 }`}
             />
             <span>Auto</span>

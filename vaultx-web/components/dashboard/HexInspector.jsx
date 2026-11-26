@@ -104,7 +104,7 @@ export function HexInspector({
       {/* Top Header */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 dark:border-white/10 pb-2.5">
         <div className="flex items-center gap-2">
-          <Binary className="h-4 w-4 text-zinc-900 dark:text-[#10B981]" />
+          <Binary className="h-4 w-4 text-blue-900 dark:text-[#10B981]" />
           <h4 className="font-mono text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">{label}</h4>
         </div>
 
@@ -113,15 +113,15 @@ export function HexInspector({
             type="button"
             onClick={handleCopyHex}
             disabled={totalBytes === 0}
-            className="inline-flex items-center gap-1.5 rounded border border-zinc-300 bg-zinc-50 px-2.5 py-1 font-mono text-xs font-medium text-zinc-800 transition-colors hover:border-zinc-400 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-white/10 disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded border border-zinc-300 bg-zinc-50 px-2.5 py-1 font-mono text-xs font-medium text-zinc-800 transition-colors hover:border-blue-400 hover:bg-blue-50/50 hover:text-blue-950 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-white/10 disabled:opacity-40"
           >
-            {copiedHex ? <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3 w-3 text-zinc-500 dark:text-[#A1A1AA]" />}
+            {copiedHex ? <Check className="h-3 w-3 text-blue-700 dark:text-emerald-400" /> : <Copy className="h-3 w-3 text-zinc-500 dark:text-[#A1A1AA]" />}
             <span>{copiedHex ? 'Copied' : 'Copy Hex'}</span>
           </button>
 
           <span className="font-mono text-xs text-zinc-500 dark:text-[#71717A]">
             {fileId ? `ID: ${fileId} • ` : ''}
-            <span className="font-semibold text-zinc-900 dark:text-emerald-400">{totalBytes}</span> bytes
+            <span className="font-semibold text-blue-900 dark:text-emerald-400">{totalBytes}</span> bytes
           </span>
         </div>
       </div>
