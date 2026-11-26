@@ -3,12 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Binary, Copy, Check, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { base64ToBuffer } from '../../lib/vaultCrypto.js';
-
-function bufferToHex(buf) {
-  if (!buf) return '';
-  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+import { bufferToHex, formatHexRows } from '../../utils/hexUtils.js';
 
 /**
  * HexInspector
@@ -48,7 +43,7 @@ export function HexInspector({
       try {
         const ivBuf = base64ToBuffer(ivB64);
         ivStr = bufferToHex(ivBuf);
-      } catch (_) {}
+      } catch (_) { }
     }
     if (!ivStr && rawBytes.byteLength >= 12) {
       ivStr = bufferToHex(rawBytes.subarray(0, 12));

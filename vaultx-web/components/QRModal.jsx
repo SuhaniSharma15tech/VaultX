@@ -53,18 +53,18 @@ export function QRModal({ isOpen, onClose, shareUrl, url, title = 'Zero-Knowledg
         }
       }}
     >
-      <div className="modal-container hud-glass w-full max-w-md overflow-hidden rounded-xl border border-white/10">
-        <div className="flex items-center justify-between border-b border-white/10 bg-[#0B0C10] px-4 py-2.5">
+      <div className="modal-container hud-glass w-full max-w-md overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-[#0B0C10]">
+        <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-50 px-4 py-2.5 dark:border-white/10 dark:bg-[#0B0C10]">
           <div className="flex items-center gap-2">
-            <QrCode className="h-4 w-4 text-[#A1A1AA]" />
-            <h3 id="qr-modal-title" className="font-mono text-sm font-semibold text-[#FAFAFA]">
+            <QrCode className="h-4 w-4 text-zinc-500 dark:text-[#A1A1AA]" />
+            <h3 id="qr-modal-title" className="font-mono text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">
               {title}
             </h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="btn-close rounded p-1 text-[#71717A] hover:bg-white/5 hover:text-[#FAFAFA]"
+            className="btn-close rounded p-1 text-zinc-500 hover:bg-zinc-200 hover:text-black dark:text-[#71717A] dark:hover:bg-white/5 dark:hover:text-[#FAFAFA]"
             aria-label="Close modal"
           >
             <X className="h-4 w-4" />
@@ -72,7 +72,7 @@ export function QRModal({ isOpen, onClose, shareUrl, url, title = 'Zero-Knowledg
         </div>
 
         <div className="flex flex-col items-center gap-4 p-5">
-          <div className="rounded-xl border border-white/10 bg-white p-4">
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10">
             {targetUrl ? (
               <QRCodeSVG
                 value={targetUrl}

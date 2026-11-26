@@ -72,13 +72,13 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
   }, [logs, eventFilter, searchQuery]);
 
   return (
-    <div className="audit-trail hud-glass rounded-xl border border-white/10 p-4">
+    <div className="audit-trail hud-glass rounded-xl border border-zinc-200 dark:border-white/10 p-4">
       {/* Top Header */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 dark:border-white/10 pb-2.5">
         <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-[#10B981]" />
-          <h4 className="font-mono text-sm font-semibold text-[#FAFAFA]">Access Audit Trail</h4>
-          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[10px] text-[#A1A1AA]">
+          <Activity className="h-4 w-4 text-zinc-900 dark:text-[#10B981]" />
+          <h4 className="font-mono text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">Access Audit Trail</h4>
+          <span className="rounded-full border border-zinc-200 bg-zinc-100 dark:border-white/10 dark:bg-white/5 px-2 py-0.5 font-mono text-[10px] text-zinc-600 dark:text-[#A1A1AA]">
             {filteredLogs.length} events
           </span>
         </div>
@@ -88,17 +88,15 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
           <button
             type="button"
             onClick={() => setAutoRefresh((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 font-mono text-xs transition-colors ${
-              autoRefresh
-                ? 'border-emerald-500/40 bg-emerald-950/30 text-emerald-300'
-                : 'border-white/10 bg-white/5 text-[#71717A] hover:text-[#A1A1AA]'
-            }`}
+            className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 font-mono text-xs transition-colors ${autoRefresh
+              ? 'border-zinc-300 bg-zinc-100 text-zinc-900 dark:border-emerald-500/40 dark:bg-emerald-950/30 dark:text-emerald-300'
+              : 'border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-800 dark:border-white/10 dark:bg-white/5 dark:text-[#71717A] dark:hover:text-[#A1A1AA]'
+              }`}
             title="Toggle automatic polling every 6 seconds"
           >
             <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                autoRefresh ? 'bg-emerald-400 animate-pulse' : 'bg-[#71717A]'
-              }`}
+              className={`h-1.5 w-1.5 rounded-full ${autoRefresh ? 'bg-zinc-800 dark:bg-emerald-400 animate-pulse' : 'bg-zinc-400 dark:bg-[#71717A]'
+                }`}
             />
             <span>Auto</span>
           </button>
@@ -108,7 +106,7 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
               type="button"
               onClick={fetchLogs}
               disabled={loading}
-              className="btn-refresh-logs inline-flex items-center gap-1.5 rounded border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-xs font-medium text-zinc-200 transition-colors hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
+              className="btn-refresh-logs inline-flex items-center gap-1.5 rounded border border-zinc-300 bg-white px-2.5 py-1 font-mono text-xs font-medium text-zinc-800 transition-colors hover:border-zinc-400 hover:bg-zinc-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-white/10"
             >
               <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
@@ -120,23 +118,23 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
       {/* Filter and Search Bar */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="relative min-w-[160px] flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#71717A]" />
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400 dark:text-[#71717A]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search logs..."
-            className="w-full rounded-md border border-white/10 bg-[#07080B] py-1.5 pl-8 pr-3 font-mono text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#10B981] focus:outline-none"
+            className="w-full rounded-md border border-zinc-300 bg-white py-1.5 pl-8 pr-3 font-mono text-xs text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none dark:border-white/10 dark:bg-[#07080B] dark:text-[#FAFAFA] dark:placeholder-[#71717A] dark:focus:border-[#10B981]"
           />
         </div>
 
-        <div className="flex items-center gap-1.5 rounded-md border border-white/10 bg-[#07080B] px-2.5 py-1 text-xs text-[#A1A1AA]">
-          <Filter className="h-3 w-3 text-[#71717A]" />
+        <div className="flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-[#07080B] px-2.5 py-1 text-xs text-zinc-700 dark:text-[#A1A1AA]">
+          <Filter className="h-3 w-3 text-zinc-500 dark:text-[#71717A]" />
           <select
             value={eventFilter}
             onChange={(e) => setEventFilter(e.target.value)}
             aria-label="Filter events"
-            className="bg-transparent font-mono text-xs text-zinc-200 focus:outline-none cursor-pointer"
+            className="bg-transparent font-mono text-xs text-zinc-900 dark:text-zinc-200 focus:outline-none cursor-pointer"
           >
             <option value="ALL">All Events</option>
             <option value="CREATED">Created</option>
@@ -188,11 +186,10 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
                     </td>
                     <td className="py-2 pr-3 whitespace-nowrap">
                       <span
-                        className={`inline-block rounded border px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${
-                          isDanger
-                            ? 'border-red-500/50 bg-red-950/40 text-red-300'
-                            : 'border-emerald-500/50 bg-emerald-950/40 text-emerald-300'
-                        }`}
+                        className={`inline-block rounded border px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${isDanger
+                          ? 'border-red-500/50 bg-red-950/40 text-red-300'
+                          : 'border-emerald-500/50 bg-emerald-950/40 text-emerald-300'
+                          }`}
                       >
                         {entry.event ? (entry.event.startsWith('+') ? entry.event : `+ ${entry.event}`) : '+ EVENT'}
                       </span>
@@ -200,9 +197,8 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
                     <td className="py-2 pr-3 whitespace-nowrap">
                       <span className="inline-flex items-center gap-1.5">
                         <span
-                          className={`h-2 w-2 rounded-full ${
-                            isDanger ? 'bg-red-400 shadow-[0_0_6px_#EF4444]' : 'bg-emerald-400 shadow-[0_0_6px_#10B981]'
-                          }`}
+                          className={`h-2 w-2 rounded-full ${isDanger ? 'bg-red-400 shadow-[0_0_6px_#EF4444]' : 'bg-emerald-400 shadow-[0_0_6px_#10B981]'
+                            }`}
                         />
                         <span className="text-[11px] text-[#71717A]">-</span>
                       </span>

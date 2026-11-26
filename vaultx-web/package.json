@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node --unhandled-rejections=warn ./node_modules/next/dist/bin/next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node test/run-all-tests.mjs"
   },
   "dependencies": {
     "next": "^14.2.24",

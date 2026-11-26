@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class',
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -22,11 +23,17 @@ module.exports = {
         scarletGlow: '#991B1B',
         bloodRed: '#7F1D1D',
         coralRed: '#F87171',
-        // Aliases for backward compatibility
-        deepViolet: '#10B981',
+        // Light Theme Color System
+        alabaster: '#F8FAFC',
+        slateSurface: '#F1F5F9',
+        charcoalHeading: '#0F172A',
+        mutedSlate: '#475569',
+        helperSlate: '#64748B',
       },
       fontFamily: {
         sans: [
+          'Marcellus',
+          'serif',
           'system-ui',
           '-apple-system',
           'BlinkMacSystemFont',
@@ -37,6 +44,7 @@ module.exports = {
           'sans-serif',
         ],
         mono: [
+          'Marcellus',
           'ui-monospace',
           'SFMono-Regular',
           'Menlo',
@@ -49,10 +57,11 @@ module.exports = {
       },
       boxShadow: {
         'hud': '0 24px 60px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
+        'hud-light': '0 20px 50px -15px rgba(15, 23, 42, 0.08)',
         'well': 'inset 0 2px 12px rgba(0, 0, 0, 0.85)',
+        'well-light': 'inset 0 1px 3px rgba(15, 23, 42, 0.04)',
         'green-cta': '0 10px 25px -5px rgba(16, 185, 129, 0.35)',
         'red-cta': '0 10px 25px -5px rgba(239, 68, 68, 0.35)',
-        'violet-cta': '0 10px 25px -5px rgba(16, 185, 129, 0.35)',
       },
       keyframes: {
         floatSlow: {

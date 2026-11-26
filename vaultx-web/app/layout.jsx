@@ -1,5 +1,6 @@
 import './globals.css';
 import { CyberBackdrop } from '../components/CyberBackdrop.jsx';
+import { ThemeProvider } from '../components/ThemeProvider.jsx';
 
 export const metadata = {
   title: "VaultX | Zero-Knowledge File & Secret Sharing",
@@ -8,10 +9,12 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className="dark">
-      <body className="font-sans antialiased bg-[#050508] text-[#FAFAFA] min-h-screen selection:bg-[#10B981]/30 selection:text-emerald-300">
-        <CyberBackdrop />
-        {children}
+    <html lang="en" suppressHydrationWarning>
+      <body className="font-sans antialiased bg-white text-zinc-900 dark:bg-[#050508] dark:text-[#FAFAFA] min-h-screen selection:bg-zinc-200 selection:text-zinc-900 dark:selection:bg-zinc-800 dark:selection:text-zinc-100 transition-colors duration-150">
+        <ThemeProvider>
+          <CyberBackdrop />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

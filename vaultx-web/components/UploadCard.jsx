@@ -128,7 +128,7 @@ export function UploadCard() {
       await navigator.clipboard.writeText(val);
       setter(true);
       setTimeout(() => setter(false), 2000);
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const handleSubmit = async (e) => {
@@ -171,20 +171,19 @@ export function UploadCard() {
       <TerminalWindow>
         <div className="p-4 sm:p-5">
           {/* Dual Input Tabs */}
-          <div className="tabs mb-4 flex gap-2 border-b border-white/10 pb-3" role="tablist">
+          <div className="tabs mb-4 flex gap-2 border-b border-zinc-200 dark:border-white/10 pb-3" role="tablist">
             <button
               type="button"
               role="tab"
               aria-selected={tab === 'file'}
               onClick={() => setTab('file')}
               disabled={isBusy}
-              className={`tab-file inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${
-                tab === 'file'
-                  ? 'border-[#10B981]/60 bg-[#10B981]/15 text-white'
-                  : 'border-white/10 bg-white/[0.03] text-[#A1A1AA] hover:border-white/20 hover:text-[#FAFAFA]'
-              }`}
+              className={`tab-file inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${tab === 'file'
+                ? 'border-zinc-900 bg-zinc-900 text-white dark:border-[#10B981]/60 dark:bg-[#10B981]/15 dark:text-white'
+                : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-[#A1A1AA] dark:hover:border-white/20 dark:hover:text-[#FAFAFA]'
+                }`}
             >
-              <Upload className={`h-3.5 w-3.5 ${tab === 'file' ? 'text-[#10B981]' : 'text-[#71717A]'}`} />
+              <Upload className={`h-3.5 w-3.5 ${tab === 'file' ? 'text-white dark:text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
               <span>File Upload</span>
             </button>
 
@@ -194,30 +193,28 @@ export function UploadCard() {
               aria-selected={tab === 'text'}
               onClick={() => setTab('text')}
               disabled={isBusy}
-              className={`tab-note inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${
-                tab === 'text'
-                  ? 'border-[#10B981]/60 bg-[#10B981]/15 text-white'
-                  : 'border-white/10 bg-white/[0.03] text-[#A1A1AA] hover:border-white/20 hover:text-[#FAFAFA]'
-              }`}
+              className={`tab-note inline-flex items-center gap-2 rounded-md border px-3.5 py-1.5 text-xs font-medium transition-all ${tab === 'text'
+                ? 'border-zinc-900 bg-zinc-900 text-white dark:border-[#10B981]/60 dark:bg-[#10B981]/15 dark:text-white'
+                : 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-[#A1A1AA] dark:hover:border-white/20 dark:hover:text-[#FAFAFA]'
+                }`}
             >
-              <FileText className={`h-3.5 w-3.5 ${tab === 'text' ? 'text-[#10B981]' : 'text-[#71717A]'}`} />
+              <FileText className={`h-3.5 w-3.5 ${tab === 'text' ? 'text-white dark:text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
               <span>Secret Text Note</span>
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Tab Panel: #07080B File Dropzone vs Secret Text Editor */}
+            {/* Tab Panel: File Dropzone vs Secret Text Editor */}
             {tab === 'file' ? (
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => !isBusy && fileInputRef.current?.click()}
-                className={`dropzone hud-well flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-5 text-center transition-all ${
-                  isDragging
-                    ? 'border-[#10B981] bg-[#10B981]/10'
-                    : 'border-white/15 hover:border-white/30'
-                }`}
+                className={`dropzone hud-well flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-6 py-5 text-center transition-all ${isDragging
+                  ? 'border-zinc-900 bg-zinc-100 dark:border-[#10B981] dark:bg-[#10B981]/10'
+                  : 'border-zinc-300 hover:border-zinc-400 dark:border-white/15 dark:hover:border-white/30'
+                  }`}
               >
                 <input
                   ref={fileInputRef}
@@ -228,10 +225,10 @@ export function UploadCard() {
                   aria-label="Select file to encrypt"
                 />
                 {file ? (
-                  <div className="flex w-full max-w-md items-center justify-between rounded-lg border border-white/10 bg-[#0B0C10] px-4 py-3 text-left">
+                  <div className="flex w-full max-w-md items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3 text-left dark:border-white/10 dark:bg-[#0B0C10]">
                     <div className="min-w-0 pr-3">
-                      <p className="truncate text-sm font-semibold text-[#FAFAFA]">{file.name}</p>
-                      <p className="font-mono text-xs text-[#71717A]">
+                      <p className="truncate text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">{file.name}</p>
+                      <p className="font-mono text-xs text-zinc-500 dark:text-[#71717A]">
                         {formatBytes(file.size)} &bull; {file.type || 'application/octet-stream'}
                       </p>
                     </div>
@@ -242,7 +239,7 @@ export function UploadCard() {
                         setFile(null);
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
-                      className="rounded p-1 text-[#71717A] hover:bg-white/5 hover:text-[#FAFAFA]"
+                      className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:text-[#71717A] dark:hover:bg-white/5 dark:hover:text-[#FAFAFA]"
                       aria-label="Remove selected file"
                     >
                       <X className="h-4 w-4" />
@@ -250,13 +247,13 @@ export function UploadCard() {
                   </div>
                 ) : (
                   <>
-                    <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-full border border-[#10B981]/40 bg-[#10B981]/15">
-                      <Upload className="h-5 w-5 text-[#10B981]" />
+                    <div className="mb-2.5 flex h-11 w-11 items-center justify-center rounded-full border border-zinc-300 bg-zinc-100 dark:border-[#10B981]/40 dark:bg-[#10B981]/15">
+                      <Upload className="h-5 w-5 text-zinc-800 dark:text-[#10B981]" />
                     </div>
-                    <p className="text-sm font-medium text-[#FAFAFA]">
+                    <p className="text-sm font-medium text-zinc-900 dark:text-[#FAFAFA]">
                       Drag and drop a file here, or click to browse
                     </p>
-                    <p className="mt-1 font-mono text-xs text-[#71717A]">
+                    <p className="mt-1 font-mono text-xs text-zinc-500 dark:text-[#71717A]">
                       Encrypted locally with AES-256-GCM before leaving your browser
                     </p>
                   </>
@@ -265,10 +262,10 @@ export function UploadCard() {
             ) : (
               <div className="secret-note-editor">
                 <div className="mb-1.5 flex items-center justify-between">
-                  <label htmlFor="vaultx-secret-note" className="font-mono text-xs font-medium text-[#A1A1AA]">
+                  <label htmlFor="vaultx-secret-note" className="font-mono text-xs font-medium text-zinc-600 dark:text-[#A1A1AA]">
                     Secret Text Payload
                   </label>
-                  <span className="font-mono text-xs text-[#71717A]">
+                  <span className="font-mono text-xs text-zinc-400 dark:text-[#71717A]">
                     {new TextEncoder().encode(textNote).byteLength} bytes
                   </span>
                 </div>
@@ -279,23 +276,22 @@ export function UploadCard() {
                   onChange={(e) => setTextNote(e.target.value)}
                   disabled={isBusy}
                   placeholder="Paste API keys, recovery phrases, or private notes..."
-                  className="secret-note-textarea hud-well w-full rounded-xl border border-white/10 p-3.5 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#10B981] focus:outline-none"
+                  className="secret-note-textarea hud-well w-full rounded-xl border border-zinc-200 p-3.5 font-mono text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none dark:border-white/10 dark:text-[#FAFAFA] dark:placeholder-[#71717A] dark:focus:border-[#10B981]"
                 />
               </div>
             )}
 
             {/* Mode Selector */}
-            <div className="mode-selector rounded-xl border border-white/10 bg-[#07080B] p-3.5">
-              <p className="mb-2.5 text-xs font-medium text-[#71717A]">
+            <div className="mode-selector rounded-xl border border-zinc-200 bg-zinc-50 p-3.5 dark:border-white/10 dark:bg-[#07080B]">
+              <p className="mb-2.5 text-xs font-medium text-zinc-500 dark:text-[#71717A]">
                 Cryptographic Sharing Mode
               </p>
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <label
-                  className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${
-                    mode === 'MODE_A'
-                      ? 'border-[#10B981] bg-[#10B981]/10'
-                      : 'border-white/10 bg-[#0B0C10] hover:border-white/20'
-                  }`}
+                  className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${mode === 'MODE_A'
+                    ? 'border-zinc-900 bg-zinc-200/60 dark:border-[#10B981] dark:bg-[#10B981]/10'
+                    : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-white/10 dark:bg-[#0B0C10] dark:hover:border-white/20'
+                    }`}
                 >
                   <input
                     type="radio"
@@ -304,25 +300,24 @@ export function UploadCard() {
                     checked={mode === 'MODE_A'}
                     onChange={() => setMode('MODE_A')}
                     disabled={isBusy}
-                    className="mt-0.5 accent-[#10B981]"
+                    className="mt-0.5 accent-zinc-900 dark:accent-[#10B981]"
                   />
                   <div>
-                    <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-[#FAFAFA]">
-                      <UserCheck className={`h-3.5 w-3.5 ${mode === 'MODE_A' ? 'text-[#10B981]' : 'text-[#71717A]'}`} />
+                    <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-zinc-900 dark:text-[#FAFAFA]">
+                      <UserCheck className={`h-3.5 w-3.5 ${mode === 'MODE_A' ? 'text-zinc-900 dark:text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
                       <span>Mode A: Recipient Public Key</span>
                     </div>
-                    <p className="mt-1 text-xs text-[#A1A1AA]">
+                    <p className="mt-1 text-xs text-zinc-600 dark:text-[#A1A1AA]">
                       AES key wrapped with recipient RSA-OAEP public key. Zero fragment.
                     </p>
                   </div>
                 </label>
 
                 <label
-                  className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${
-                    mode === 'MODE_B'
-                      ? 'border-[#10B981] bg-[#10B981]/10'
-                      : 'border-white/10 bg-[#0B0C10] hover:border-white/20'
-                  }`}
+                  className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-all ${mode === 'MODE_B'
+                    ? 'border-zinc-900 bg-zinc-200/60 dark:border-[#10B981] dark:bg-[#10B981]/10'
+                    : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-white/10 dark:bg-[#0B0C10] dark:hover:border-white/20'
+                    }`}
                 >
                   <input
                     type="radio"
@@ -331,16 +326,16 @@ export function UploadCard() {
                     checked={mode === 'MODE_B'}
                     onChange={() => setMode('MODE_B')}
                     disabled={isBusy}
-                    className="mt-0.5 accent-[#10B981]"
+                    className="mt-0.5 accent-zinc-900 dark:accent-[#10B981]"
                   />
                   <div>
-                    <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-[#FAFAFA]">
-                      <Link2 className={`h-3.5 w-3.5 ${mode === 'MODE_B' ? 'text-[#10B981]' : 'text-[#71717A]'}`} />
+                    <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-zinc-900 dark:text-[#FAFAFA]">
+                      <Link2 className={`h-3.5 w-3.5 ${mode === 'MODE_B' ? 'text-zinc-900 dark:text-[#10B981]' : 'text-zinc-400 dark:text-[#71717A]'}`} />
                       <span>Mode B: Anonymous Fragment Link</span>
                     </div>
-                    <p className="mt-1 text-xs text-[#A1A1AA]">
+                    <p className="mt-1 text-xs text-zinc-600 dark:text-[#A1A1AA]">
                       Ephemeral AES key stored only in URL{' '}
-                      <code className="rounded border border-white/10 bg-white/5 px-1 py-0.5 text-zinc-200">
+                      <code className="rounded border border-zinc-200 bg-zinc-100 px-1 py-0.5 text-zinc-800 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200">
                         #key=
                       </code>{' '}
                       fragment.
@@ -350,8 +345,8 @@ export function UploadCard() {
               </div>
 
               {mode === 'MODE_A' && (
-                <div className="mt-3.5 space-y-2.5 border-t border-white/10 pt-3.5">
-                  <label htmlFor="vaultx-recipient" className="block font-mono text-xs font-medium text-[#A1A1AA]">
+                <div className="mt-3.5 space-y-2.5 border-t border-zinc-200 dark:border-white/10 pt-3.5">
+                  <label htmlFor="vaultx-recipient" className="block font-mono text-xs font-medium text-zinc-600 dark:text-[#A1A1AA]">
                     Recipient Handle &amp; Key Verification
                   </label>
                   <div className="flex gap-2">
@@ -365,13 +360,13 @@ export function UploadCard() {
                       }}
                       disabled={isBusy}
                       placeholder="Enter recipient handle (e.g. alice)"
-                      className="recipient-input flex-1 rounded-md border border-white/10 bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#10B981] focus:outline-none"
+                      className="recipient-input flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none dark:border-white/10 dark:bg-[#0B0C10] dark:text-[#FAFAFA] dark:placeholder-[#71717A] dark:focus:border-[#10B981]"
                     />
                     <button
                       type="button"
                       onClick={handleLookupRecipient}
                       disabled={isBusy || !recipientUsername.trim()}
-                      className="btn-lookup-recipient inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 font-mono text-xs font-medium text-zinc-200 hover:bg-white/10 disabled:opacity-50"
+                      className="btn-lookup-recipient inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-xs font-medium text-zinc-800 hover:bg-zinc-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10"
                     >
                       <Search className="h-3.5 w-3.5" />
                       <span>Verify Key</span>
@@ -379,18 +374,18 @@ export function UploadCard() {
                   </div>
 
                   {recipientInfo && (
-                    <div className="recipient-fingerprint rounded-lg border border-emerald-500/35 bg-emerald-950/20 p-2.5 text-xs">
-                      <p className="font-mono font-semibold text-emerald-400">
+                    <div className="recipient-fingerprint rounded-lg border border-zinc-300 bg-zinc-100 p-2.5 text-xs dark:border-emerald-500/35 dark:bg-emerald-950/20">
+                      <p className="font-mono font-semibold text-zinc-900 dark:text-emerald-400">
                         Verified Key for {recipientInfo.username}
                       </p>
-                      <p className="mt-1 break-all font-mono text-[11px] text-[#A1A1AA]">
+                      <p className="mt-1 break-all font-mono text-[11px] text-zinc-600 dark:text-[#A1A1AA]">
                         Fingerprint: {recipientInfo.fingerprint}
                       </p>
                     </div>
                   )}
 
                   {lookupStatus === 'not_found' && !recipientInfo && (
-                    <p className="font-mono text-xs text-red-400">
+                    <p className="font-mono text-xs text-zinc-700 dark:text-red-400">
                       Recipient not found. Ask them to generate a keypair via Key Setup first.
                     </p>
                   )}
@@ -399,9 +394,9 @@ export function UploadCard() {
             </div>
 
             {/* Expiration, Download Limits & Security Options */}
-            <div className="controls-grid grid grid-cols-1 gap-3 rounded-xl border border-white/10 bg-[#07080B] p-3.5 sm:grid-cols-2">
+            <div className="controls-grid grid grid-cols-1 gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3.5 sm:grid-cols-2 dark:border-white/10 dark:bg-[#07080B]">
               <div>
-                <label htmlFor="vaultx-ttl" className="mb-1 block text-xs font-medium text-[#71717A]">
+                <label htmlFor="vaultx-ttl" className="mb-1 block text-xs font-medium text-zinc-600 dark:text-[#71717A]">
                   Expiration (TTL)
                 </label>
                 <ThemeSelect
@@ -419,7 +414,7 @@ export function UploadCard() {
               </div>
 
               <div>
-                <label htmlFor="vaultx-max-downloads" className="mb-1 block text-xs font-medium text-[#71717A]">
+                <label htmlFor="vaultx-max-downloads" className="mb-1 block text-xs font-medium text-zinc-600 dark:text-[#71717A]">
                   Max Downloads
                 </label>
                 <input
@@ -430,17 +425,16 @@ export function UploadCard() {
                   value={maxDownloads}
                   onChange={(e) => setMaxDownloads(Math.max(1, Number(e.target.value) || 1))}
                   disabled={isBusy || isBurnAfterReading}
-                  className="max-downloads-input w-full rounded-md border border-white/10 bg-[#0B0C10] px-3 py-1.5 font-mono text-sm text-[#FAFAFA] focus:border-[#10B981] focus:outline-none disabled:opacity-50"
+                  className="max-downloads-input w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none disabled:opacity-50 dark:border-white/10 dark:bg-[#0B0C10] dark:text-[#FAFAFA] dark:focus:border-[#10B981]"
                 />
               </div>
 
-              {/* Burn After Reading (1 View) — Tactical Crimson / Ruby Red Accent */}
+              {/* Burn After Reading (1 View) */}
               <div
-                className={`flex items-center justify-between gap-2.5 rounded-lg border px-3 py-2 transition-colors sm:col-span-2 ${
-                  isBurnAfterReading
-                    ? 'border-red-500/50 bg-gradient-to-r from-red-950/30 to-[#0B0C10] text-red-400'
-                    : 'border-white/10 bg-[#0B0C10] text-[#A1A1AA]'
-                }`}
+                className={`flex items-center justify-between gap-2.5 rounded-lg border px-3 py-2 transition-colors sm:col-span-2 ${isBurnAfterReading
+                  ? 'border-zinc-900 bg-zinc-200 text-zinc-900 dark:border-red-500/50 dark:bg-gradient-to-r dark:from-red-950/30 dark:to-[#0B0C10] dark:text-red-400'
+                  : 'border-zinc-200 bg-white text-zinc-700 dark:border-white/10 dark:bg-[#0B0C10] dark:text-[#A1A1AA]'
+                  }`}
               >
                 <div className="flex items-center gap-2.5">
                   <input
@@ -449,27 +443,26 @@ export function UploadCard() {
                     checked={isBurnAfterReading}
                     onChange={(e) => handleBurnToggle(e.target.checked)}
                     disabled={isBusy}
-                    className="burn-checkbox h-4 w-4 rounded border-white/20 bg-[#050508] accent-red-500"
+                    className="burn-checkbox h-4 w-4 rounded accent-zinc-900 dark:border-white/20 dark:bg-[#050508] dark:accent-red-500"
                   />
                   <label htmlFor="vaultx-burn" className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium">
-                    <Flame className={`h-3.5 w-3.5 ${isBurnAfterReading ? 'text-red-400' : 'text-[#71717A]'}`} />
+                    <Flame className={`h-3.5 w-3.5 ${isBurnAfterReading ? 'text-zinc-900 dark:text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
                     <span>Burn After Reading (1 View)</span>
                   </label>
                 </div>
                 {isBurnAfterReading && (
-                  <span className="rounded border border-red-500/40 bg-red-500/15 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-red-400">
+                  <span className="rounded border border-zinc-400 bg-zinc-300 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-900 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400">
                     Self-Destruct Armed
                   </span>
                 )}
               </div>
 
-              {/* Password Protection — Tactical Crimson Red Accent when active */}
+              {/* Password Protection */}
               <div
-                className={`space-y-2.5 rounded-lg border px-3 py-2.5 transition-colors sm:col-span-2 ${
-                  isPasswordProtected
-                    ? 'border-red-500/40 bg-red-500/10 text-red-400'
-                    : 'border-white/10 bg-[#0B0C10] text-[#A1A1AA]'
-                }`}
+                className={`space-y-2.5 rounded-lg border px-3 py-2.5 transition-colors sm:col-span-2 ${isPasswordProtected
+                  ? 'border-zinc-900 bg-zinc-200 text-zinc-900 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400'
+                  : 'border-zinc-200 bg-white text-zinc-700 dark:border-white/10 dark:bg-[#0B0C10] dark:text-[#A1A1AA]'
+                  }`}
               >
                 <div className="flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-2.5">
@@ -479,15 +472,15 @@ export function UploadCard() {
                       checked={isPasswordProtected}
                       onChange={(e) => setIsPasswordProtected(e.target.checked)}
                       disabled={isBusy}
-                      className="password-toggle h-4 w-4 rounded border-white/20 bg-[#050508] accent-red-500"
+                      className="password-toggle h-4 w-4 rounded accent-zinc-900 dark:border-white/20 dark:bg-[#050508] dark:accent-red-500"
                     />
                     <label htmlFor="vaultx-password-toggle" className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium">
-                      <Lock className={`h-3.5 w-3.5 ${isPasswordProtected ? 'text-red-400' : 'text-[#71717A]'}`} />
+                      <Lock className={`h-3.5 w-3.5 ${isPasswordProtected ? 'text-zinc-900 dark:text-red-400' : 'text-zinc-400 dark:text-[#71717A]'}`} />
                       <span>Require Additional Password (PBKDF2 key wrapping)</span>
                     </label>
                   </div>
                   {isPasswordProtected && (
-                    <span className="rounded border border-red-500/40 bg-red-500/15 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-red-400">
+                    <span className="rounded border border-zinc-400 bg-zinc-300 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-900 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-400">
                       Locked
                     </span>
                   )}
@@ -502,13 +495,13 @@ export function UploadCard() {
                       disabled={isBusy}
                       placeholder="Enter link protection password..."
                       aria-label="Vault protection password"
-                      className="password-input w-full rounded-md border border-red-500/30 bg-[#050508] px-3 py-1.5 pr-10 font-mono text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-red-500 focus:outline-none"
+                      className="password-input w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 pr-10 font-mono text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:outline-none dark:border-red-500/30 dark:bg-[#050508] dark:text-[#FAFAFA] dark:placeholder-[#71717A] dark:focus:border-red-500"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       disabled={isBusy}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#71717A] hover:text-[#FAFAFA] transition-colors focus:outline-none"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-900 dark:text-[#71717A] dark:hover:text-[#FAFAFA] transition-colors focus:outline-none"
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? (
@@ -524,18 +517,18 @@ export function UploadCard() {
 
             {/* Error Display */}
             {error && (
-              <div className="error-banner flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-400">
+              <div className="error-banner flex items-start gap-2 rounded-lg border border-zinc-400 bg-zinc-100 p-3 text-xs text-zinc-900 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
-            {/* Dynamic Action Button — Solid Cyber Green (#10B981) */}
+            {/* Dynamic Action Button */}
             <div className="flex items-center gap-3">
               <button
                 type="submit"
                 disabled={isSubmitDisabled}
-                className="btn-upload inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#10B981] px-5 py-3 font-mono text-sm font-semibold tracking-wide text-white shadow-lg shadow-emerald-500/25 transition-all hover:bg-[#059669] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                className="btn-upload inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-900 text-white hover:bg-black shadow-lg shadow-zinc-900/15 dark:bg-[#10B981] dark:shadow-emerald-500/25 dark:hover:bg-[#059669] px-5 py-3 font-mono text-sm font-semibold tracking-wide transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
               >
                 <Lock className="h-4 w-4" />
                 <span>{getActionLabel()}</span>
@@ -545,7 +538,7 @@ export function UploadCard() {
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="btn-reset inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-4 py-3 font-mono text-xs font-semibold text-zinc-200 hover:bg-white/10"
+                  className="btn-reset inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-4 py-3 font-mono text-xs font-semibold text-zinc-800 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10"
                 >
                   <RotateCcw className="h-4 w-4" />
                   <span>Reset</span>
@@ -556,17 +549,17 @@ export function UploadCard() {
 
           {/* Share Output Section */}
           {status === 'success' && result && (
-            <div className="share-output hud-well mt-5 space-y-4 rounded-xl border border-emerald-500/35 p-4">
-              <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-                <h3 className="font-mono text-sm font-bold text-emerald-400">
+            <div className="share-output hud-well mt-5 space-y-4 rounded-xl border border-zinc-300 p-4 dark:border-emerald-500/35">
+              <div className="flex items-center justify-between border-b border-zinc-200 dark:border-white/10 pb-2.5">
+                <h3 className="font-mono text-sm font-bold text-zinc-900 dark:text-emerald-400">
                   Vault Ready &amp; Encrypted
                 </h3>
-                <span className="font-mono text-xs text-[#71717A]">ID: {result.fileId}</span>
+                <span className="font-mono text-xs text-zinc-500 dark:text-[#71717A]">ID: {result.fileId}</span>
               </div>
 
               {/* Shareable Link */}
               <div>
-                <label className="mb-1.5 block font-mono text-xs font-medium text-[#71717A]">
+                <label className="mb-1.5 block font-mono text-xs font-medium text-zinc-600 dark:text-[#71717A]">
                   Shareable Zero-Knowledge Link
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -575,12 +568,12 @@ export function UploadCard() {
                     readOnly
                     value={result.fullShareUrl}
                     aria-label="Shareable link"
-                    className="share-url-input min-w-0 flex-1 rounded-md border border-white/10 bg-[#0B0C10] px-3 py-1.5 font-mono text-xs text-zinc-200 select-all"
+                    className="share-url-input min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-xs text-zinc-900 dark:border-white/10 dark:bg-[#0B0C10] dark:text-zinc-200 select-all"
                   />
                   <button
                     type="button"
                     onClick={() => handleCopyText(result.fullShareUrl, setCopiedLink)}
-                    className="btn-copy-link inline-flex items-center gap-1.5 rounded-md bg-[#10B981] px-3 py-1.5 font-mono text-xs font-semibold text-white shadow-md shadow-emerald-500/20 hover:bg-[#059669]"
+                    className="btn-copy-link inline-flex items-center gap-1.5 rounded-md bg-zinc-900 px-3 py-1.5 font-mono text-xs font-semibold text-white hover:bg-black dark:bg-[#10B981] dark:shadow-emerald-500/20 dark:hover:bg-[#059669]"
                   >
                     {copiedLink ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                     <span>{copiedLink ? 'Copied' : 'Copy'}</span>
@@ -588,7 +581,7 @@ export function UploadCard() {
                   <button
                     type="button"
                     onClick={() => setIsQrOpen(true)}
-                    className="btn-open-qr inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 font-mono text-xs font-medium text-zinc-200 hover:bg-white/10"
+                    className="btn-open-qr inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-mono text-xs font-medium text-zinc-800 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10"
                   >
                     <QrCode className="h-3.5 w-3.5" />
                     <span>QR Code</span>
@@ -597,26 +590,26 @@ export function UploadCard() {
               </div>
 
               {/* Owner Revocation Token Banner */}
-              <div className="owner-token-banner rounded-lg border border-red-500/30 bg-red-500/5 p-3">
+              <div className="owner-token-banner rounded-lg border border-zinc-300 bg-zinc-100 p-3 dark:border-red-500/30 dark:bg-red-500/5">
                 <div className="flex items-start gap-2.5">
-                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-zinc-700 dark:text-red-400" />
                   <div className="min-w-0 flex-1">
-                    <p className="font-mono text-xs font-bold text-[#FAFAFA]">Owner Revocation Token</p>
-                    <p className="mt-0.5 text-xs text-[#A1A1AA]">
+                    <p className="font-mono text-xs font-bold text-zinc-900 dark:text-[#FAFAFA]">Owner Revocation Token</p>
+                    <p className="mt-0.5 text-xs text-zinc-600 dark:text-[#A1A1AA]">
                       Save this token to audit access or destroy the vault early from the{' '}
-                      <Link href="/dashboard" className="text-zinc-200 underline hover:text-white">
+                      <Link href="/dashboard" className="text-zinc-900 underline hover:text-black dark:text-zinc-200 dark:hover:text-white font-medium">
                         Sender Dashboard
                       </Link>
                       .
                     </p>
                     <div className="mt-2 flex items-center gap-2">
-                      <code className="flex-1 truncate rounded border border-white/10 bg-[#050508] px-2.5 py-1 font-mono text-xs text-zinc-200 select-all">
+                      <code className="flex-1 truncate rounded border border-zinc-300 bg-white px-2.5 py-1 font-mono text-xs text-zinc-900 dark:border-white/10 dark:bg-[#050508] dark:text-zinc-200 select-all">
                         {result.ownerToken}
                       </code>
                       <button
                         type="button"
                         onClick={() => handleCopyText(result.ownerToken, setCopiedToken)}
-                        className="btn-copy-token inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-xs font-medium text-zinc-200 hover:bg-white/10"
+                        className="btn-copy-token inline-flex items-center gap-1 rounded border border-zinc-300 bg-white px-2.5 py-1 font-mono text-xs font-medium text-zinc-800 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10"
                       >
                         {copiedToken ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                         <span>{copiedToken ? 'Copied' : 'Copy'}</span>
