@@ -493,23 +493,6 @@ export function useUpload() {
         ? `${downloadPath}#key=${wrapped.fragmentKeyB64}`
         : downloadPath;
 
-    const shareRecord = {
-      id: apiRes.fileId,
-      fileId: apiRes.fileId,
-      sourceFileId: uploadedRecord.fileId,
-      ownerId: uploadedRecord.ownerId || null,
-      itemType: 'FILE',
-      filename: uploadedRecord.filename,
-      sizeBytes: uploadedRecord.sizeBytes,
-      createdAt: new Date().toISOString(),
-      expiresAt: apiRes.expiresAt,
-      ownerToken: apiRes.ownerToken,
-      mode: targetMode,
-      status: 'SHARED',
-      isBurnAfterReading: targetBurn,
-      isPasswordProtected: targetPwdProtected,
-    };
-
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const storageKey = uploadedRecord.ownerId
@@ -517,8 +500,20 @@ export function useUpload() {
           : 'vaultx_sent_vaults';
         const rawSent = window.localStorage.getItem(storageKey);
         const sentList = rawSent ? JSON.parse(rawSent) : [];
-        sentList.unshift(shareRecord);
-        window.localStorage.setItem(storageKey, JSON.stringify(sentList));
+        const updatedList = Array.isArray(sentList)
+          ? sentList.map((item) =>
+              (item.fileId || item.id) === uploadedRecord.fileId
+                ? {
+                    ...item,
+                    status: 'SHARED',
+                    mode: targetMode,
+                    isBurnAfterReading: targetBurn,
+                    isPasswordProtected: targetPwdProtected,
+                  }
+                : item
+            )
+          : [];
+        window.localStorage.setItem(storageKey, JSON.stringify(updatedList));
       } catch (_) {}
     }
 

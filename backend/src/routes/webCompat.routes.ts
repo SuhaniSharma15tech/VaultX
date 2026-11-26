@@ -717,32 +717,60 @@ webCompatRouter.get(
       const { data: items, error } = await supabase
         .from("VaultItem")
         .select(
-          "id, ownerId, ownerToken, mode, itemType, sizeBytes, isPasswordProtected, isBurnAfterReading, maxDownloads, remainingDownloads, burned, isRevoked, expiresAt, createdAt"
+          "id, ownerId, ownerToken, blobKey, mode, itemType, sizeBytes, isPasswordProtected, isBurnAfterReading, maxDownloads, remainingDownloads, burned, isRevoked, expiresAt, createdAt"
         )
         .eq("ownerId", req.user!.userId)
-        .order("createdAt", { ascending: false });
+        .order("createdAt", { ascending: true });
 
       if (error) throw new Error(error.message);
 
+      // Group by blobKey so each uploaded file appears as ONE card even if shared multiple times.
+      const groups = new Map<string, NonNullable<typeof items>>();
+      for (const item of items ?? []) {
+        const key = item.blobKey ? `blob:${item.blobKey}` : `id:${item.id}`;
+        const arr = groups.get(key) || [];
+        arr.push(item);
+        groups.set(key, arr);
+      }
+
+      const vaults = Array.from(groups.values())
+        .map((group) => {
+          const primary = group[0]; // Earliest item = original uploaded file
+          const hasShares = group.length > 1;
+          const latestShare = hasShares ? group[group.length - 1] : primary;
+          const status = primary.isRevoked
+            ? "REVOKED"
+            : primary.burned
+            ? "BURNED"
+            : hasShares
+            ? "SHARED"
+            : "UPLOADED";
+
+          return {
+            id: primary.id,
+            fileId: primary.id,
+            ownerId: primary.ownerId,
+            ownerToken: primary.ownerToken,
+            mode: latestShare.mode,
+            itemType: primary.itemType,
+            sizeBytes: primary.sizeBytes,
+            isPasswordProtected: latestShare.isPasswordProtected,
+            isBurnAfterReading: latestShare.isBurnAfterReading,
+            maxDownloads: latestShare.maxDownloads,
+            remainingDownloads: primary.remainingDownloads,
+            burned: primary.burned,
+            revoked: primary.isRevoked,
+            status,
+            shareCount: Math.max(0, group.length - 1),
+            expiresAt: toUtcIso(primary.expiresAt),
+            createdAt: toUtcIso(primary.createdAt),
+          };
+        })
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
       res.json({
         success: true,
-        vaults: (items ?? []).map((v) => ({
-          id: v.id,
-          fileId: v.id,
-          ownerId: v.ownerId,
-          ownerToken: v.ownerToken,
-          mode: v.mode,
-          itemType: v.itemType,
-          sizeBytes: v.sizeBytes,
-          isPasswordProtected: v.isPasswordProtected,
-          isBurnAfterReading: v.isBurnAfterReading,
-          maxDownloads: v.maxDownloads,
-          remainingDownloads: v.remainingDownloads,
-          burned: v.burned,
-          revoked: v.isRevoked,
-          expiresAt: toUtcIso(v.expiresAt),
-          createdAt: toUtcIso(v.createdAt),
-        })),
+        vaults,
       });
     } catch (err) {
       next(err);
@@ -920,7 +948,7 @@ webCompatRouter.get(
 
       const { data: vault, error: vaultErr } = await supabase
         .from("VaultItem")
-        .select("id, ownerId, ownerToken")
+        .select("id, ownerId, ownerToken, blobKey")
         .eq("id", id)
         .maybeSingle();
 
@@ -935,10 +963,31 @@ webCompatRouter.get(
         return;
       }
 
+      // Collect sibling share items referencing the same blobKey so SHARED & download events roll up to the file
+      let siblingShares: Array<{
+        id: string;
+        mode: string;
+        maxDownloads: number;
+        isBurnAfterReading: boolean;
+        isPasswordProtected: boolean;
+        createdAt: string;
+      }> = [];
+
+      if (vault.blobKey) {
+        const { data: siblings } = await supabase
+          .from("VaultItem")
+          .select("id, mode, maxDownloads, isBurnAfterReading, isPasswordProtected, createdAt")
+          .eq("blobKey", vault.blobKey)
+          .neq("id", id)
+          .order("createdAt", { ascending: true });
+        siblingShares = siblings ?? [];
+      }
+
+      const itemIds = [id, ...siblingShares.map((s) => s.id)];
       const { data: logs, error: logsErr } = await supabase
         .from("AccessLog")
-        .select("action, ipHash, createdAt")
-        .eq("itemId", id)
+        .select("itemId, action, ipHash, createdAt")
+        .in("itemId", itemIds)
         .order("createdAt", { ascending: true });
 
       if (logsErr) throw new Error(logsErr.message);
@@ -950,13 +999,46 @@ webCompatRouter.get(
         REVOKED: "REVOKED",
       };
 
-      res.json({
-        success: true,
-        logs: (logs ?? []).map((l) => ({
+      const combinedLogs: Array<{ timestamp: string; ipHash: string; event: string; details?: string }> = [];
+
+      // Primary item logs
+      for (const l of logs ?? []) {
+        if (l.itemId !== id && l.action === "CREATED") {
+          // Sibling share creation is represented as a SHARED event below
+          continue;
+        }
+        combinedLogs.push({
           timestamp: toUtcIso(l.createdAt),
           ipHash: l.ipHash || "system",
           event: eventMap[l.action] || l.action,
-        })),
+        });
+      }
+
+      // Record each share operation as a SHARED audit event on the file
+      for (const s of siblingShares) {
+        const flags = [
+          s.mode || "MODE_B",
+          `${s.maxDownloads}dl`,
+          s.isBurnAfterReading ? "Burn" : null,
+          s.isPasswordProtected ? "Password" : null,
+        ]
+          .filter(Boolean)
+          .join(" • ");
+        combinedLogs.push({
+          timestamp: toUtcIso(s.createdAt),
+          ipHash: "owner",
+          event: "SHARED",
+          details: flags,
+        });
+      }
+
+      combinedLogs.sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+
+      res.json({
+        success: true,
+        logs: combinedLogs,
       });
     } catch (err) {
       next(err);

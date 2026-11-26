@@ -131,7 +131,7 @@ export default function LoginPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-[#FAFAFA] sm:text-3xl">
-              Sender Sign In
+              Sign In
             </h1>
             <p className="mt-1.5 text-sm text-zinc-600 dark:text-[#A1A1AA]">
               A VaultX account is required to encrypt and share files

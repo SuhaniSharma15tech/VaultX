@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { RefreshCw, Activity, AlertCircle, Search, Filter } from 'lucide-react';
+import { Activity, AlertCircle, Search, Filter } from 'lucide-react';
 import { getAccessLogs } from '../../lib/api.js';
 
 /**
@@ -100,18 +100,6 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
             />
             <span>Auto</span>
           </button>
-
-          {fileId && ownerToken && (
-            <button
-              type="button"
-              onClick={fetchLogs}
-              disabled={loading}
-              className="btn-refresh-logs inline-flex items-center gap-1.5 rounded border border-zinc-300 bg-white px-2.5 py-1 font-mono text-xs font-medium text-zinc-800 transition-colors hover:border-zinc-400 hover:bg-zinc-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-white/10"
-            >
-              <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -138,6 +126,7 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
           >
             <option value="ALL">All Events</option>
             <option value="CREATED">Created</option>
+            <option value="SHARED">Shared</option>
             <option value="DOWNLOAD">Download</option>
             <option value="REVOKE">Revoked</option>
             <option value="BURN">Burned</option>
@@ -200,7 +189,9 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
                           className={`h-2 w-2 rounded-full ${isDanger ? 'bg-zinc-400 dark:bg-red-400 dark:shadow-[0_0_6px_#EF4444]' : 'bg-zinc-900 dark:bg-emerald-400 dark:shadow-[0_0_6px_#10B981]'
                             }`}
                         />
-                        <span className="text-[11px] text-zinc-500 dark:text-[#71717A]">-</span>
+                        <span className="text-[11px] text-zinc-500 dark:text-[#71717A]">
+                          {entry.details || '-'}
+                        </span>
                       </span>
                     </td>
                     <td className="py-2 pr-3 truncate max-w-[130px] text-zinc-600 dark:text-[#71717A]" title={entry.ipHash}>

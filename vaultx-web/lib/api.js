@@ -533,6 +533,7 @@ export async function createShareFromVault(sourceFileId, ownerToken, sharePayloa
   const shareRecord = {
     ...source,
     id: shareId,
+    sourceFileId,
     ownerToken: newOwnerToken,
     mode: requestBody.mode,
     recipientUsername: requestBody.recipientUsername,
@@ -554,6 +555,28 @@ export async function createShareFromVault(sourceFileId, ownerToken, sharePayloa
     ],
   };
 
+  // Update existing source file status and append SHARED event to its audit trail
+  const shareDetails = [
+    requestBody.mode,
+    `${effectiveMax}dl`,
+    requestBody.isBurnAfterReading ? 'Burn' : null,
+    requestBody.isPasswordProtected ? 'Password' : null,
+  ]
+    .filter(Boolean)
+    .join(' • ');
+
+  source.status = 'SHARED';
+  source.mode = requestBody.mode;
+  source.logs = [
+    ...(source.logs || []),
+    {
+      timestamp: new Date().toISOString(),
+      ipHash: 'mock-owner',
+      event: 'SHARED',
+      details: shareDetails,
+    },
+  ];
+  mockVaults.set(sourceFileId, source);
   mockVaults.set(shareId, shareRecord);
   persistMockData();
 
@@ -722,9 +745,9 @@ export async function getMyVaults() {
   }
 
   initMockData();
-  const ownerKey = getCurrentOwnerKey();
+  const ownerId = getCurrentOwnerKey();
   const vaults = Array.from(mockVaults.values())
-    .filter((v) => v.ownerId === ownerKey)
+    .filter((v) => v.ownerId === ownerId && !v.sourceFileId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map((v) => ({
       id: v.id,
@@ -738,6 +761,7 @@ export async function getMyVaults() {
       remainingDownloads: v.remainingDownloads,
       burned: v.burned,
       revoked: v.revoked,
+      status: v.revoked ? 'REVOKED' : v.burned ? 'BURNED' : v.status || 'UPLOADED',
       expiresAt: v.expiresAt,
       createdAt: v.createdAt,
     }));
@@ -946,9 +970,17 @@ export async function getAccessLogs(id, ownerToken) {
     throw new ApiError('Unauthorized: invalid owner token', 401);
   }
 
+  const childLogs = Array.from(mockVaults.values())
+    .filter((v) => v.sourceFileId === id)
+    .flatMap((v) => (v.logs || []).filter((l) => l.event !== 'CREATED'));
+
+  const mergedLogs = [...(vault.logs || []), ...childLogs].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
   return {
     success: true,
-    logs: [...vault.logs]
+    logs: mergedLogs
   };
 }
 
