@@ -80,25 +80,25 @@ export function RevokeButton({
           onClick={handleClick}
           disabled={isDisabled}
           className={`btn-revoke inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 font-mono text-xs font-semibold transition-all ${status === 'revoked' || isRevoked
-            ? 'border-emerald-500/40 bg-emerald-950/25 text-emerald-400 cursor-not-allowed shadow-[0_0_12px_rgba(16,185,129,0.15)]'
+            ? 'border-zinc-300 bg-zinc-100 text-zinc-500 dark:border-emerald-500/40 dark:bg-emerald-950/25 dark:text-emerald-400 cursor-not-allowed shadow-none dark:shadow-[0_0_12px_rgba(16,185,129,0.15)]'
             : status === 'revoking'
-              ? 'border-red-500/50 bg-red-950/40 text-red-300 opacity-75 cursor-wait'
-              : 'border-red-500/50 bg-gradient-to-r from-red-950/40 to-red-900/30 text-red-300 hover:from-red-950/60 hover:to-red-900/50 hover:border-red-500/70 shadow-sm shadow-red-950/50 disabled:opacity-50'
+              ? 'border-zinc-400 bg-zinc-200 text-zinc-700 dark:border-red-500/50 dark:bg-red-950/40 dark:text-red-300 opacity-75 cursor-wait'
+              : 'border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800 dark:border-red-500/50 dark:bg-gradient-to-r dark:from-red-950/40 dark:to-red-900/30 dark:text-red-300 dark:hover:from-red-950/60 dark:hover:to-red-900/50 dark:hover:border-red-500/70 shadow-sm disabled:opacity-50'
             }`}
         >
           {status === 'revoked' || isRevoked ? (
             <>
-              <Check className="h-3.5 w-3.5 text-emerald-400" />
+              <Check className="h-3.5 w-3.5 text-zinc-600 dark:text-emerald-400" />
               <span>Revoked</span>
             </>
           ) : status === 'revoking' ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-red-400" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-600 dark:text-red-400" />
               <span>Revoking...</span>
             </>
           ) : (
             <>
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-3.5 w-3.5 text-zinc-200 dark:text-red-400" />
               <span>Revoke Access</span>
             </>
           )}

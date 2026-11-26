@@ -100,12 +100,12 @@ export function HexInspector({
   };
 
   return (
-    <div className="hex-inspector hud-glass rounded-xl border border-white/10 p-4">
+    <div className="hex-inspector rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0B0C10]/80">
       {/* Top Header */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 dark:border-white/10 pb-2.5">
         <div className="flex items-center gap-2">
-          <Binary className="h-4 w-4 text-[#10B981]" />
-          <h4 className="font-mono text-sm font-semibold text-[#FAFAFA]">{label}</h4>
+          <Binary className="h-4 w-4 text-zinc-900 dark:text-[#10B981]" />
+          <h4 className="font-mono text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">{label}</h4>
         </div>
 
         <div className="flex items-center gap-2.5">
@@ -113,52 +113,52 @@ export function HexInspector({
             type="button"
             onClick={handleCopyHex}
             disabled={totalBytes === 0}
-            className="inline-flex items-center gap-1.5 rounded border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-xs font-medium text-zinc-200 transition-colors hover:border-white/20 hover:bg-white/10 disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded border border-zinc-300 bg-zinc-50 px-2.5 py-1 font-mono text-xs font-medium text-zinc-800 transition-colors hover:border-zinc-400 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-white/20 dark:hover:bg-white/10 disabled:opacity-40"
           >
-            {copiedHex ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-[#A1A1AA]" />}
+            {copiedHex ? <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3 w-3 text-zinc-500 dark:text-[#A1A1AA]" />}
             <span>{copiedHex ? 'Copied' : 'Copy Hex'}</span>
           </button>
 
-          <span className="font-mono text-xs text-[#71717A]">
+          <span className="font-mono text-xs text-zinc-500 dark:text-[#71717A]">
             {fileId ? `ID: ${fileId} • ` : ''}
-            <span className="font-semibold text-emerald-400">{totalBytes}</span> bytes
+            <span className="font-semibold text-zinc-900 dark:text-emerald-400">{totalBytes}</span> bytes
           </span>
         </div>
       </div>
 
       {/* Collapsible Metadata Accordion */}
-      <div className="mb-3 rounded-lg border border-white/10 bg-[#07080B]/80 font-mono text-xs">
+      <div className="mb-3 rounded-lg border border-zinc-200 bg-zinc-50/80 dark:border-white/10 dark:bg-[#07080B]/80 font-mono text-xs">
         <button
           type="button"
           onClick={() => setIsMetaOpen((prev) => !prev)}
-          className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-medium text-[#A1A1AA] hover:text-[#FAFAFA]"
+          className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-[#A1A1AA] dark:hover:text-[#FAFAFA]"
         >
           <div className="flex items-center gap-1.5">
-            <Info className="h-3.5 w-3.5 text-[#10B981]" />
+            <Info className="h-3.5 w-3.5 text-zinc-800 dark:text-[#10B981]" />
             <span>Metadata</span>
           </div>
           {isMetaOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
         </button>
 
         {isMetaOpen && (
-          <div className="border-t border-white/10 px-3 py-2.5 space-y-1.5 text-[11px]">
+          <div className="border-t border-zinc-200 dark:border-white/10 px-3 py-2.5 space-y-1.5 text-[11px]">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
-                <span className="text-[#71717A]">IV (12 B):</span>
-                <span className="font-mono font-medium text-amber-300 select-all">{derivedIvHex}</span>
+                <span className="text-zinc-500 dark:text-[#71717A]">IV (12 B):</span>
+                <span className="font-mono font-medium text-zinc-900 dark:text-amber-300 select-all">{derivedIvHex}</span>
               </div>
               <button
                 type="button"
                 onClick={handleCopyIv}
-                className="text-[#71717A] hover:text-zinc-200 p-0.5 rounded"
+                className="text-zinc-500 hover:text-zinc-900 dark:text-[#71717A] dark:hover:text-zinc-200 p-0.5 rounded"
                 title="Copy IV"
               >
-                {copiedIv ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                {copiedIv ? <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3 w-3" />}
               </button>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[#71717A]">Loaded:</span>
-              <span className="text-[#FAFAFA] font-medium">{totalBytes} B</span>
+              <span className="text-zinc-500 dark:text-[#71717A]">Loaded:</span>
+              <span className="text-zinc-900 dark:text-[#FAFAFA] font-medium">{totalBytes} B</span>
             </div>
           </div>
         )}
@@ -166,31 +166,31 @@ export function HexInspector({
 
       {/* Hex / ASCII Viewer */}
       {rows.length === 0 ? (
-        <div className="hud-well rounded-lg border border-dashed border-white/10 p-4 text-center font-mono text-xs text-[#71717A]">
+        <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-4 text-center font-mono text-xs text-zinc-500 dark:border-white/10 dark:bg-[#07080B] dark:text-[#71717A]">
           No raw ciphertext bytes loaded for inspection.
         </div>
       ) : (
-        <div className="hud-well overflow-x-auto rounded-lg border border-white/10 p-3 font-mono text-xs">
-          <div className="mb-2 grid grid-cols-12 border-b border-white/10 pb-1 text-[11px] font-semibold text-[#71717A]">
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white p-3 font-mono text-xs dark:border-white/10 dark:bg-[#07080B]">
+          <div className="mb-2 grid grid-cols-12 border-b border-zinc-200 dark:border-white/10 pb-1 text-[11px] font-semibold text-zinc-500 dark:text-[#71717A]">
             <span className="col-span-2">Offset</span>
             <span className="col-span-7">Hex</span>
-            <span className="col-span-3 border-l border-white/10 pl-3">ASCII</span>
+            <span className="col-span-3 border-l border-zinc-200 dark:border-white/10 pl-3">ASCII</span>
           </div>
           <div className="space-y-1">
             {rows.map((row) => (
               <div key={row.offset} className="grid grid-cols-12 items-center gap-1 whitespace-pre">
-                <span className="col-span-2 text-[#71717A] select-none">{row.offset}</span>
-                <span className="col-span-7 hex-bytes font-medium text-emerald-400 tracking-wider">
+                <span className="col-span-2 text-zinc-400 dark:text-[#71717A] select-none">{row.offset}</span>
+                <span className="col-span-7 hex-bytes font-medium text-zinc-900 dark:text-emerald-400 tracking-wider">
                   {row.hex}
                 </span>
-                <span className="col-span-3 ascii-text border-l border-white/10 pl-3 text-red-400/90 font-medium">
+                <span className="col-span-3 ascii-text border-l border-zinc-200 dark:border-white/10 pl-3 text-zinc-700 dark:text-red-400/90 font-medium">
                   {row.ascii}
                 </span>
               </div>
             ))}
           </div>
           {totalBytes > maxBytes && (
-            <p className="mt-2.5 border-t border-white/10 pt-2 text-[11px] text-[#71717A]">
+            <p className="mt-2.5 border-t border-zinc-200 dark:border-white/10 pt-2 text-[11px] text-zinc-500 dark:text-[#71717A]">
               Showing first {maxBytes} of {totalBytes} encrypted bytes.
             </p>
           )}

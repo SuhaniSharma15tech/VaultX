@@ -203,33 +203,33 @@ export default function DashboardPage() {
                   <div
                     key={itemId}
                     onClick={() => setSelectedId(itemId)}
-                    className={`vault-list-item cursor-pointer rounded-xl border p-4 transition-colors ${
+                    className={`vault-list-item cursor-pointer rounded-xl border p-4 transition-all ${
                       isSelected
-                        ? 'hud-glass border-[#10B981] shadow-[0_0_20px_-5px_rgba(16,185,129,0.25)]'
-                        : 'hud-glass border-white/10 hover:border-white/20'
+                        ? 'border-zinc-900 bg-white shadow-md dark:border-[#10B981] dark:bg-[#0B0C10]/90 dark:shadow-[0_0_20px_-5px_rgba(16,185,129,0.25)]'
+                        : 'border-zinc-200 bg-white/80 hover:border-zinc-400 hover:bg-white dark:border-white/10 dark:bg-[#0B0C10]/60 dark:hover:border-white/20'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-[#FAFAFA]">
+                        <p className="truncate text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">
                           {item.filename || 'Encrypted Payload'}
                         </p>
-                        <p className="mt-0.5 font-mono text-[11px] text-[#71717A]">
+                        <p className="mt-0.5 font-mono text-[11px] text-zinc-500 dark:text-[#71717A]">
                           ID: {itemId} &bull; {item.mode || 'MODE_B'}
                         </p>
                       </div>
                       {item.revoked && (
-                        <span className="rounded border border-red-500/40 bg-red-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-red-400">
+                        <span className="rounded border border-zinc-300 bg-zinc-100 px-2 py-0.5 font-mono text-[10px] font-bold text-zinc-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-400">
                           REVOKED
                         </span>
                       )}
                     </div>
 
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-2.5">
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 dark:border-white/10 pt-2.5">
                       <Link
                         href={`/v/${itemId}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1 font-mono text-xs font-medium text-[#A1A1AA] hover:text-[#FAFAFA] hover:underline"
+                        className="inline-flex items-center gap-1 font-mono text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:underline dark:text-[#A1A1AA] dark:hover:text-[#FAFAFA]"
                       >
                         <span>Open Route</span>
                         <ExternalLink className="h-3 w-3" />
@@ -253,13 +253,13 @@ export default function DashboardPage() {
             <section className="lg:col-span-7 space-y-5">
               {selectedVault && (
                 <>
-                  <div className="hud-glass rounded-xl border border-white/10 p-4">
+                  <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0B0C10]/80">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <h3 className="text-sm font-semibold text-[#FAFAFA]">
+                        <h3 className="text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">
                           {selectedVault.filename || 'Selected Vault'}
                         </h3>
-                        <p className="font-mono text-xs text-[#71717A]">
+                        <p className="font-mono text-xs text-zinc-500 dark:text-[#71717A]">
                           Created:{' '}
                           {selectedVault.createdAt
                             ? new Date(selectedVault.createdAt).toLocaleString()

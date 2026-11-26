@@ -155,14 +155,14 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
 
       {/* Table */}
       {filteredLogs.length === 0 ? (
-        <p className="hud-well rounded-lg border border-white/10 py-5 text-center font-mono text-xs text-[#71717A]">
+        <p className="rounded-lg border border-zinc-200 bg-zinc-50 py-5 text-center font-mono text-xs text-zinc-500 dark:border-white/10 dark:bg-[#07080B] dark:text-[#71717A]">
           {loading ? 'Loading audit logs...' : 'No audit events matching criteria.'}
         </p>
       ) : (
-        <div className="hud-well overflow-x-auto rounded-lg border border-white/10 p-2">
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white p-2 dark:border-white/10 dark:bg-[#07080B]">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="border-b border-white/10 font-mono text-[11px] text-[#71717A]">
+              <tr className="border-b border-zinc-200 font-mono text-[11px] text-zinc-500 dark:border-white/10 dark:text-[#71717A]">
                 <th className="py-2 pr-3 font-medium">Timestamp</th>
                 <th className="py-2 pr-3 font-medium">Event</th>
                 <th className="py-2 pr-3 font-medium">Status</th>
@@ -171,7 +171,7 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
                 <th className="py-2 font-medium">Views Left</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.06] font-mono">
+            <tbody className="divide-y divide-zinc-200 dark:divide-white/[0.06] font-mono">
               {filteredLogs.map((entry, idx) => {
                 const isDanger =
                   entry.event?.includes('REVOKE') ||
@@ -180,15 +180,15 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
                   entry.event?.includes('EXPIRED');
 
                 return (
-                  <tr key={`${entry.timestamp}-${idx}`} className="text-zinc-200 hover:bg-white/[0.02]">
-                    <td className="py-2 pr-3 whitespace-nowrap text-[#A1A1AA]">
+                  <tr key={`${entry.timestamp}-${idx}`} className="text-zinc-800 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-white/[0.02]">
+                    <td className="py-2 pr-3 whitespace-nowrap text-zinc-600 dark:text-[#A1A1AA]">
                       {entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '-'}
                     </td>
                     <td className="py-2 pr-3 whitespace-nowrap">
                       <span
                         className={`inline-block rounded border px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase ${isDanger
-                          ? 'border-red-500/50 bg-red-950/40 text-red-300'
-                          : 'border-emerald-500/50 bg-emerald-950/40 text-emerald-300'
+                          ? 'border-zinc-300 bg-zinc-100 text-zinc-800 dark:border-red-500/50 dark:bg-red-950/40 dark:text-red-300'
+                          : 'border-zinc-900 bg-zinc-900 text-white dark:border-emerald-500/50 dark:bg-emerald-950/40 dark:text-emerald-300'
                           }`}
                       >
                         {entry.event ? (entry.event.startsWith('+') ? entry.event : `+ ${entry.event}`) : '+ EVENT'}
@@ -197,19 +197,19 @@ export function AuditTrail({ fileId, ownerToken, logs: initialLogs = null }) {
                     <td className="py-2 pr-3 whitespace-nowrap">
                       <span className="inline-flex items-center gap-1.5">
                         <span
-                          className={`h-2 w-2 rounded-full ${isDanger ? 'bg-red-400 shadow-[0_0_6px_#EF4444]' : 'bg-emerald-400 shadow-[0_0_6px_#10B981]'
+                          className={`h-2 w-2 rounded-full ${isDanger ? 'bg-zinc-400 dark:bg-red-400 dark:shadow-[0_0_6px_#EF4444]' : 'bg-zinc-900 dark:bg-emerald-400 dark:shadow-[0_0_6px_#10B981]'
                             }`}
                         />
-                        <span className="text-[11px] text-[#71717A]">-</span>
+                        <span className="text-[11px] text-zinc-500 dark:text-[#71717A]">-</span>
                       </span>
                     </td>
-                    <td className="py-2 pr-3 truncate max-w-[130px] text-[#71717A]" title={entry.ipHash}>
+                    <td className="py-2 pr-3 truncate max-w-[130px] text-zinc-600 dark:text-[#71717A]" title={entry.ipHash}>
                       {entry.ipHash || 'mock-own...'}
                     </td>
-                    <td className="py-2 pr-3 whitespace-nowrap text-[#71717A]">
+                    <td className="py-2 pr-3 whitespace-nowrap text-zinc-500 dark:text-[#71717A]">
                       {entry.browser || entry.userAgent || '-'}
                     </td>
-                    <td className="py-2 whitespace-nowrap text-[#71717A]">
+                    <td className="py-2 whitespace-nowrap text-zinc-500 dark:text-[#71717A]">
                       {entry.viewsLeft != null ? entry.viewsLeft : entry.remainingDownloads != null ? entry.remainingDownloads : '-'}
                     </td>
                   </tr>
